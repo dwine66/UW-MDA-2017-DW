@@ -80,6 +80,24 @@ ggplot(bldg.data, aes(x = Orientation, y = Heating.Load)) + geom_point() +
   xlab('Orientation') + ylab('Heating.Load') + 
   ggtitle('Relationship between Orientation and Heating Load')
 
+#Area Relationships
+ggplot(bldg.data, aes(x = Roof.Area, y = Wall.Area)) + geom_point() + 
+  xlab('Roof Area') + ylab('Wall.Area') + 
+  ggtitle('Relationship between Roof Area and Wall Area')
+
+ggplot(bldg.data, aes(Roof.Area, Surface.Area)) + geom_point(aes(color = factor(Overall.Height))) + 
+  xlab('Roof Area') + ylab('Wall Area') + 
+  ggtitle('Relationship between Roof Area and Wall Area, \n with heights shown')
+
+ggplot(Short, aes(Orientation, Heating.Load)) + geom_point(aes(color = factor(Glazing.Area))) + 
+  xlab('Orientation') + ylab('Heating Load') + 
+  ggtitle('Relationship between Orientation and Heating Load, \n with Glazing Area shown')
+
+#Violin Plot
+ggplot(Short, aes(x = factor(Glazing.Area), y = Heating.Load)) + 
+  geom_violin(trim = FALSE, draw_quantiles = c(0.25, 0.5, 0.75)) + xlab('Height')  + 
+  ggtitle('Heating Load by Orientation')
+
 #Scatterplot Grid
 options(repr.plot.width=8, repr.plot.height=11)
 ggplot(bldg.data, aes(Surface.Area, Heating.Load)) + 
