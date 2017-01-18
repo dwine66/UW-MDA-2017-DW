@@ -41,6 +41,10 @@ factDist <- cut(bldg.data$Glazing.Area.Distribution,breaks=6,labels=1:6)
 #factDist <- lapply(factDist, as.character)
 factHeight <- cut(bldg.data$Overall.Height,breaks=2,labels=1:2)
 
+# Some subsets that seemed useful:
+Tall<-subset(bldg.data,Overall.Height==7)
+Short<-subset(bldg.data,Overall.Height==3.5)
+
 # Main Analysis
 
 # (See Word Doc for analysis and conclusions)
@@ -84,7 +88,6 @@ ggplot(Short, aes(x = Surface.Area, y = Heating.Load)) + geom_point() +
   xlab('Surface Area') + ylab('Heating.Load') + 
   ggtitle('Relationship between Surface Area and Heating Load')
 
-
 #Area Relationships
 ggplot(bldg.data, aes(x = Roof.Area, y = Wall.Area)) + geom_point() + 
   xlab('Roof Area') + ylab('Wall.Area') + 
@@ -94,6 +97,16 @@ ggplot(bldg.data, aes(Roof.Area, Surface.Area)) + geom_point(aes(color = factor(
   xlab('Roof Area') + ylab('Surface Area') + 
   ggtitle('Relationship between Roof Area and Surface Area, \n with heights shown')
 
+# Short Building Analysis
+
+ggplot(Short, aes(Surface.Area, Heating.Load)) + geom_point(aes(color = factor(Glazing.Area))) + 
+  xlab('Surface Area') + ylab('Heating Load') + 
+  ggtitle('Relationship between Surface Area and Heating Load for Short Buildings, \n with Glazing Area shown')
+
+ggplot(Short, aes(Glazing.Area.Distribution, Heating.Load)) + geom_point(aes(color = factor(Glazing.Area))) + 
+  xlab('Glazing Area Distribution') + ylab('Heating Load') + 
+  ggtitle('Relationship between Glazing Area Distribution and Heating Load for Short Buildings, \n with Glazing Area shown')
+
 ggplot(Short, aes(Orientation, Heating.Load)) + geom_point(aes(color = factor(Glazing.Area))) + 
   xlab('Orientation') + ylab('Heating Load') + 
   ggtitle('Relationship between Orientation and Heating Load, \n with Glazing Area shown')
@@ -101,7 +114,7 @@ ggplot(Short, aes(Orientation, Heating.Load)) + geom_point(aes(color = factor(Gl
 #Violin Plot
 ggplot(Short, aes(x = factor(Glazing.Area), y = Heating.Load)) + 
   geom_violin(trim = FALSE, draw_quantiles = c(0.25, 0.5, 0.75)) + xlab('Height')  + 
-  ggtitle('Heating Load by Orientation')
+  ggtitle('Heating Load by Glazing Area for Short Buildings')
 
 # Histogram
 ggplot(Short, aes(Heating.Load)) + geom_histogram(binwidth = 1) + 
@@ -110,18 +123,13 @@ ggplot(Short, aes(Heating.Load)) + geom_histogram(binwidth = 1) +
 #Scatterplot Grid
 options(repr.plot.width=8, repr.plot.height=11)
 ggplot(bldg.data, aes(Surface.Area, Heating.Load)) + 
-  geom_point(aes(color = Relative.Compactness,  size = Glazing.Area, shape = factor(Glazing.Area.Distribution)), alpha = 0.3) +
+  geom_point(aes(color = Glazing.Area,  shape = factor(Glazing.Area.Distribution)), alpha = 0.3) +
   facet_grid(factor(Overall.Height) ~ factor(Orientation)) +
   xlab('Surface Area') + ylab('Heating Load') + 
   ggtitle('Relationship between Surface Area and Heating Load, \n with Height, 
-              \n with marker radius indicating Relative Compactness \n and shape showing Orientation')
-
-# Look at each building height bin separately to study other effects
+              \n and shape showing Orientation')
 
 # Tall Buildings
-
-Tall<-subset(bldg.data,Overall.Height==7)
-
 options(repr.plot.width=8, repr.plot.height=8)
 scatterplotMatrix(~ Relative.Compactness + Surface.Area + Wall.Area + Roof.Area + 
                       Orientation + Glazing.Area + Glazing.Area.Distribution + Heating.Load, data = Tall)
@@ -135,32 +143,29 @@ ggplot(Tall, aes(x = factor(Glazing.Area), y = Heating.Load)) +
   geom_violin(trim = FALSE, draw_quantiles = c(0.25, 0.5, 0.75)) + xlab('Glazing Area')  + 
   ggtitle('Heating Load by Glazing Area')
 
-TallGlassy<-subset(Tall,Glazing.Area==0.4)
+Tall.Dark<-subset(Tall,Glazing.Area==0)
+summary(Tall.Dark)
 
 options(repr.plot.width=8, repr.plot.height=8)
 scatterplotMatrix(~ Relative.Compactness + Surface.Area + Wall.Area + Roof.Area + 
-                    Orientation  + Glazing.Area.Distribution + Heating.Load, data = TallGlassy)
+                    Orientation  +  Heating.Load, data = Tall.Dark)
 
-# Short Buildings
+# Look at all buildings again
 
-Short<-subset(bldg.data,Overall.Height==3.5)
+# 2D Scatterplot 
+ggplot(bldg.data, aes(Surface.Area, Heating.Load)) + geom_point(aes(color = factor(Overall.Height))) + 
+  xlab('Surface Area') + ylab('Heating Load') + 
+  ggtitle('Relationship between Heating Load and Surface Area, \n with Overall Height Shown')
 
-options(repr.plot.width=8, repr.plot.height=8)
-scatterplotMatrix(~ Relative.Compactness + Surface.Area + Wall.Area + Roof.Area + 
-                    Orientation + Glazing.Area + Glazing.Area.Distribution + Heating.Load, data = Short)
+# do it with Glazing Area
+ggplot(bldg.data, aes(Surface.Area, Heating.Load)) + geom_point(aes(color = factor(Glazing.Area),shape = factor(Overall.Height))) + 
+       xlab('Surface Area') + ylab('Heating Load') + 
+       ggtitle('Relationship between Cooling Load and Surface Area, \n with Overall Height Shown')
 
-#
 # Do the same for Cooling Load
-#
 
 ggplot(bldg.data, aes(x = factor(Orientation), y = Cooling.Load)) + geom_boxplot() + 
   xlab('Orientation') + ggtitle('Cooling Load by Orientation')
 
 ggplot(bldg.data, aes(x = factor(Glazing.Area.Distribution), y = Cooling.Load)) + geom_boxplot() + 
   xlab('Orientation') + ggtitle('Cooling Load by Glazing Area Distribution')
-
-# 2D Scatterplot 
-ggplot(bldg.data, aes(Surface.Area, Cooling.Load)) + geom_point(aes(color = factor(Overall.Height))) + 
-  xlab('Surface Area') + ylab('Heating Load') + 
-  ggtitle('Relationship between Cooling Load and Surface Area, \n with Overall Height Shown')
-
