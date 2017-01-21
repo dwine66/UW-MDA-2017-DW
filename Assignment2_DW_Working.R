@@ -97,6 +97,13 @@ ggplot(bldg.data, aes(Roof.Area, Surface.Area)) + geom_point(aes(color = factor(
   xlab('Roof Area') + ylab('Surface Area') + 
   ggtitle('Relationship between Roof Area and Surface Area, \n with heights shown')
 
+Area.Diff <-bldg.data$Surface.Area - bldg.data$Wall.Area - bldg.data$Roof.Area - bldg.data$Glazing.Area
+Area2.Diff <-bldg.data$Wall.Area*(1+bldg.data$Glazing.Area) - bldg.data$Roof.Area 
+
+ggplot(bldg.data, aes(Area2.Diff)) + geom_histogram(binwidth=1)
+
+ggplot(bldg.data, aes(Area2.Diff, Surface.Area)) +geom_point()
+
 # Short Building Analysis
 
 ggplot(Short, aes(Surface.Area, Heating.Load)) + geom_point(aes(color = factor(Glazing.Area))) + 
@@ -129,6 +136,14 @@ ggplot(bldg.data, aes(Surface.Area, Heating.Load)) +
   ggtitle('Relationship between Surface Area and Heating Load, \n with Height, 
               \n and shape showing Orientation')
 
+Short.Dark<-subset(Short,Glazing.Area==0)
+summary(Short.Dark)
+# note that Roof Areas are all the same, so 
+options(repr.plot.width=8, repr.plot.height=8)
+scatterplotMatrix(~ Relative.Compactness + Surface.Area + Wall.Area + 
+                    Orientation  +  Heating.Load, data = Short.Dark)
+
+str(Short.Dark)
 # Tall Buildings
 options(repr.plot.width=8, repr.plot.height=8)
 scatterplotMatrix(~ Relative.Compactness + Surface.Area + Wall.Area + Roof.Area + 
