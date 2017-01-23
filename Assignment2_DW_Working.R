@@ -1,33 +1,45 @@
 #UW Data Science - Winter 2017
-#Assignment #2
+#Assignment #1
 #Dave Wine 8430191
 
 # Import packages
-library(car)
-library(ggplot2)
-library(gridExtra)
-
-#Functions
+require(ggplot2)
+require(car)
+require(gridExtra)
 
 # File read function
 read.bldg = function(file = 'EnergyEfficiencyData.csv'){
-  bldg.data <- read.csv(file, header=TRUE, stringsAsFactors=FALSE)
-  factcols <- c('Orientation','Glazing.Area.Distribution')
-  bldg.data[, factcols]<-lapply(bldg.data[,factcols], as.numeric)
-  bldg.data[complete.cases(bldg.data),]
+
+bldg.data <- read.csv(file, header=TRUE, stringsAsFactors=FALSE)
+
+factcols <- c('Orientation','Glazing.Area.Distribution')
+
+bldg.data[, factcols]<-lapply(bldg.data[,factcols], as.numeric)
+
+bldg.data[complete.cases(bldg.data),]
 }
 
 # 2D Scatterplot function
 #This works OK but I haven't figured out how to pass or infer labels yet....
-plots.2DS=function(x,y,c){ 
-  ggplot(bldg.data, aes(x, y)) + geom_point(aes(color = factor(c))) 
+plots.2DS <- function(x,y,c){ 
+ggplot(bldg.data, aes(x, y)) + geom_point(aes(color = factor(c))) 
   #+ 
   #xlab(x) + ylab(y) + 
   #ggtitle('Relationship between'+ x +' and ' + y +' \n with '+c+' Shown')
 }
 
+# normalization function
+norm <- function(x){
+  return((x-min(x))/(max(x)-min(x)))
+#  return (min(x))
+}
+
+# denormalization function
+denorm <- function(x){
+  #TBD
+}
 # Read data in
-bldg.data = read.bldg()
+bldg.data <- read.bldg()
 
 # View dataset and summary statistics
 str(bldg.data)
@@ -40,20 +52,34 @@ factDist <- cut(bldg.data$Glazing.Area.Distribution,breaks=6,labels=1:6)
 #factDist <- lapply(factDist, as.character)
 factHeight <- cut(bldg.data$Overall.Height,breaks=2,labels=1:2)
 
-# Define some data subsets that seem useful:
+# Some subsets that seemed useful:
 Tall<-subset(bldg.data,Overall.Height==7)
 Short<-subset(bldg.data,Overall.Height==3.5)
+
+# Test normalization function
+SA.n <- norm(bldg.data$Surface.Area)
+WA.n <- norm(bldg.data$Wall.Area)
+RA.n <- norm(bldg.data$Roof.Area)
+HL.n <- norm(bldg.data$Heating.Load)
+CL.n <- norm(bldg.data$Cooling.Load)
 
 # Main Analysis
 
 # (See Word Doc for analysis and conclusions)
 # Try various plots for Heating Load
 
-#First, look at the overall correlation plots
+#First, look at the overall correlation plots (not normalized)
 options(repr.plot.width=8, repr.plot.height=8)
+scatterplotMatrix(~ Relative.Compactness + Surface.Area + Wall.Area + Roof.Area + 
+Overall.Height + Orientation + Glazing.Area + Glazing.Area.Distribution + Heating.Load + Cooling.Load, data = bldg.data)
 
-plot.spm <- scatterplotMatrix(~ Relative.Compactness + Surface.Area + Wall.Area + Roof.Area + 
-  Overall.Height + Orientation + Glazing.Area + Glazing.Area.Distribution + Heating.Load, data = bldg.data)
+#Then look at the overall correlation plots (normalized)
+options(repr.plot.width=8, repr.plot.height=8)
+scatterplotMatrix(~ Relative.Compactness + SA.n + WA.n + RA.n + 
+Overall.Height + Orientation + Glazing.Area + Glazing.Area.Distribution + HL.n + CL.n, data = bldg.data)
+
+# plot them next to each other with gridExtra
+# grid.arrange(spm,spm.n,ncol=2)
 
 # Then look at likely factors in more detail
 
@@ -69,7 +95,7 @@ ggplot(bldg.data, aes(x = factor(Overall.Height), y = Heating.Load)) +
   ggtitle('Heating Load by Height')
 
 #2D KDP
-plot.KDP <- ggplot(bldg.data, aes(Surface.Area, Heating.Load)) + geom_point() + 
+ggplot(bldg.data, aes(Surface.Area, Heating.Load)) + geom_point() + 
   geom_density2d() +
   xlab('Surface Area') + ylab('Heating Load') +
   ggtitle('Relationship between Surface Area and Heating Load')
@@ -97,13 +123,6 @@ ggplot(bldg.data, aes(Roof.Area, Surface.Area)) + geom_point(aes(color = factor(
   xlab('Roof Area') + ylab('Surface Area') + 
   ggtitle('Relationship between Roof Area and Surface Area, \n with heights shown')
 
-Area.Diff <-bldg.data$Surface.Area - bldg.data$Wall.Area - bldg.data$Roof.Area - bldg.data$Glazing.Area
-Area2.Diff <-bldg.data$Wall.Area*(1+bldg.data$Glazing.Area) - bldg.data$Roof.Area 
-
-ggplot(bldg.data, aes(Area2.Diff)) + geom_histogram(binwidth=1)
-
-ggplot(bldg.data, aes(Area2.Diff, Surface.Area)) +geom_point()
-
 # Short Building Analysis
 
 ggplot(Short, aes(Surface.Area, Heating.Load)) + geom_point(aes(color = factor(Glazing.Area))) + 
@@ -123,9 +142,15 @@ ggplot(Short, aes(x = factor(Glazing.Area), y = Heating.Load)) +
   geom_violin(trim = FALSE, draw_quantiles = c(0.25, 0.5, 0.75)) + xlab('Height')  + 
   ggtitle('Heating Load by Glazing Area for Short Buildings')
 
-# Histogram
-ggplot(Short, aes(Heating.Load)) + geom_histogram(binwidth = 1) + 
+# Histogram 1
+h1 <- ggplot(bldg.data, aes(Heating.Load)) + geom_histogram(binwidth = 2) + 
   xlab('Heating.Load') + ylab('Count')+ ggtitle('Histogram of Heating Load for Short Buildings')
+
+# Histogram 2
+h2 <- ggplot(Short, aes(Cooling.Load)) + geom_histogram(binwidth = 1) + 
+  xlab('Cooling.Load') + ylab('Count')+ ggtitle('Histogram of Cooling Load for Short Buildings')
+
+grid.arrange(h1,h2,ncol=2)
 
 #Scatterplot Grid
 options(repr.plot.width=8, repr.plot.height=11)
@@ -136,14 +161,6 @@ ggplot(bldg.data, aes(Surface.Area, Heating.Load)) +
   ggtitle('Relationship between Surface Area and Heating Load, \n with Height, 
               \n and shape showing Orientation')
 
-Short.Dark<-subset(Short,Glazing.Area==0)
-summary(Short.Dark)
-# note that Roof Areas are all the same, so 
-options(repr.plot.width=8, repr.plot.height=8)
-scatterplotMatrix(~ Relative.Compactness + Surface.Area + Wall.Area + 
-                    Orientation  +  Heating.Load, data = Short.Dark)
-
-str(Short.Dark)
 # Tall Buildings
 options(repr.plot.width=8, repr.plot.height=8)
 scatterplotMatrix(~ Relative.Compactness + Surface.Area + Wall.Area + Roof.Area + 
