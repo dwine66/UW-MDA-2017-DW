@@ -63,6 +63,9 @@ RA.n <- norm(bldg.data$Roof.Area)
 HL.n <- norm(bldg.data$Heating.Load)
 CL.n <- norm(bldg.data$Cooling.Load)
 
+#OR try lapply for normalization
+bldg.data.n <- lapply(bldg.data,norm)
+
 # Main Analysis
 
 # (See Word Doc for analysis and conclusions)
