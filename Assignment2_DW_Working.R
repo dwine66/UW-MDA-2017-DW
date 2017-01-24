@@ -6,6 +6,7 @@
 require(ggplot2)
 require(car)
 require(gridExtra)
+require(plyr)
 
 # File read function
 read.bldg = function(file = 'EnergyEfficiencyData.csv'){
@@ -65,6 +66,8 @@ CL.n <- norm(bldg.data$Cooling.Load)
 
 #OR try lapply for normalization
 bldg.data.n <- lapply(bldg.data,norm)
+
+bldg.data.n <-ddply(.data=bldg.data,.variables=bldg.data$colnames,.fun=norm)
 
 # Main Analysis
 
