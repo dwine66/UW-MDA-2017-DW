@@ -1,6 +1,7 @@
 #UW Data Science - Winter 2017
 #Assignment #1
 #Dave Wine 8430191
+# Note: For assignment 2 I did most of my work directly in Juypter....
 
 # Import packages
 require(ggplot2)
