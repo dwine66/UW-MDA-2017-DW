@@ -6,14 +6,12 @@
 require(ggplot2)
 
 # Variables
-doors <- c('Door 1','Door 2','Door 3')
+doors <- c(1,2,3)
 prizes <- c('Goat','Goat','Goat')
-choices <- c('Stay','Switch')
 states <- c('Closed','Closed','Closed')
 
 # Define number of games
-n <- 100
-
+n <- 3000
 
 # Functions
 ###############
@@ -22,20 +20,43 @@ n <- 100
 
 game.instance <- function(pc,n){
   #initialize counter
+  print("Starting Game")
+  
   result.car <- 0
   for (i in 1:n){
-  doors.load
-  player.guess
-  host.reveal(door.car, door.guess)
-  states[host.reveal] <- "Opened"
-  player.choose(pc)
-  player.reveal
-  # then add outcome to result set
-    if (player.prize == 'Car') result.car = result.car + 1
-  }
-result.car
-}
 
+    prizes <- c('Goat','Goat','Goat')
+    states <- c('Closed','Closed','Closed') 
+ #   print(states)
+    door.car <- doors.load()
+    cat("Car is behind Door",door.car,"\n")
+    prizes[door.car] <- "Car"
+
+    door.guess <- player.guess()
+    states[door.guess] <- 'Guessed'
+    cat("Player guessed Door",door.guess,"\n")
+
+    host.open <- host.reveal(door.car, door.guess)
+    states[host.open] <- "Host Opened"
+    cat("Host opens Door", host.open,"\n")
+    
+
+    
+    player.choice <- player.choose(pc,door.guess,states)
+    states[player.choice] <- "Chosen"
+    cat("Player decides to",pc," and host opens door",player.choice,"\n")
+  
+
+  
+    player.prize <- host.open(player.choice,door.car)
+    # then add outcome to result set
+      if (player.prize == 'Car') {result.car = result.car + 1
+      }
+    cat("Player Wins a",player.prize,"\n")
+
+  }
+  result.car
+}
 # Pick Another - recursively chooses another number that isn't the one passed to the function
 pick.another <-function(not.this.one,all.possible) {
   x <- as.integer(runif(1,0,all.possible)+1 )
@@ -44,43 +65,46 @@ pick.another <-function(not.this.one,all.possible) {
 
 # Pick one door at random to hold the car
 doors.load <- function(){
-  door.car <- as.integer(runif(1,0,3))+1
-  prizes[door.car] <- 'Car'
+  x <- as.integer(runif(1,0,3))+1
 }
-
-# Give the host car info
 
 # Contestant first guess
 player.guess <- function(){
-  door.guess <- as.integer(runif(1,0,3))+1
-  states[door.guess] <- 'Chosen'
-  
+  x <- as.integer(runif(1,0,3))+1
+
 }
+
 # Host reveals door of his choice
 host.reveal <-function(car,guess){
   # if the player's guess is correct, choose a goat at random
   if (guess == car) {
-    host.reveal <- pick.another(door.car,3)
-    # otherwise choose one that isn't the car or the one the player chose
-    else host.reveal <- doors[-car,-guess]
+    hr <- pick.another(car,3) 
   }
-  states[host.reveal] <- "Opened"
+  # otherwise choose the door that isn't the car or the door the player chose
+  else {hr <- which(doors!=car & doors!=guess)
+  }
+
 }
 
 # Contestant chooses from remaining doors
-player.choose <- function(choice){
-  doors.left=subset(doors,states[-"Opened"]) # Can only choose from doors that are not opened
-  choice <- as.integer(runif(1,0,2))+1
-  if (choice == 1) {
-    player.choice <- choices[1] 
-    else player.choice <- choices[2] # Switch
+player.choose <- function(pc,dg,st){
+  #doors.left=subset(doors,states[-"Opened"]) # Can only choose from doors that are not opened
+print (st)
+  if (pc == "Stay") {
+    ppc <- dg
+  }
+    else {ppc <- which("Closed"==st) # Switch to the closed, unchosen door
     }
-  player.choice <- x
+
 }
 
 # Host reveals contestant door 
-player.reveal <- function(){
-  if (player.choice == door.car)
+host.open <- function(pch,dc){
+  if (pch == dc) {
+    pp <- "Car" 
+  }
+    else {pp <- "Goat"
+  }
   
 }
 
