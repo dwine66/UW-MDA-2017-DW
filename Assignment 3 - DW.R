@@ -11,7 +11,7 @@ prizes <- c('Goat','Goat','Goat')
 states <- c('Closed','Closed','Closed')
 
 # Define number of games
-n <- 3000
+n <- 10
 
 # Functions
 ###############
@@ -40,19 +40,15 @@ game.instance <- function(pc,n){
     states[host.open] <- "Host Opened"
     cat("Host opens Door", host.open,"\n")
     
-
-    
     player.choice <- player.choose(pc,door.guess,states)
     states[player.choice] <- "Chosen"
     cat("Player decides to",pc," and host opens door",player.choice,"\n")
-  
-
   
     player.prize <- host.open(player.choice,door.car)
     # then add outcome to result set
       if (player.prize == 'Car') {result.car = result.car + 1
       }
-    cat("Player Wins a",player.prize,"\n")
+    cat("Player Wins a",player.prize,"\n\n")
 
   }
   result.car
@@ -71,7 +67,6 @@ doors.load <- function(){
 # Contestant first guess
 player.guess <- function(){
   x <- as.integer(runif(1,0,3))+1
-
 }
 
 # Host reveals door of his choice
@@ -93,9 +88,8 @@ print (st)
   if (pc == "Stay") {
     ppc <- dg
   }
-    else {ppc <- which("Closed"==st) # Switch to the closed, unchosen door
-    }
-
+  else {ppc <- which("Closed"==st) # Switch to the closed, unchosen door
+  }
 }
 
 # Host reveals contestant door 
@@ -103,9 +97,8 @@ host.open <- function(pch,dc){
   if (pch == dc) {
     pp <- "Car" 
   }
-    else {pp <- "Goat"
+  else {pp <- "Goat"
   }
-  
 }
 
 ###############
@@ -113,9 +106,17 @@ host.open <- function(pch,dc){
 # Main Loop
 
 # Run the same number of games with the contestant 'Staying' vs. 'Switching'.
-# You could also randomize the last player choice and then sort out the wins from not, but this is equivalent and easier.
-stats.stay <-game.instance("Stay",n)
-stats.switch <- game.instance("Switch",n)
+# You could also randomize the last player choice and then sort out the wins from not, 
+# but this is equivalent and easier.
+# Output is number of cars won after n games in each case.
 
+#car.stay <- game.instance("Stay",n)
+#car.switch <- game.instance("Switch",n)
 
+n <- c(10, 100, 1000, 10000)
+car.stay <- laply(n, function(n) game.instance("Stay",n))
+car.switch <- laply(n, function(n) game.instance("Switch",n))
 # Plot Results
+# Basically, show as n goes to infinity, the probabilities converge to the theoretical predictions
+car.stay.p <- car.stay/n
+car.switch.p <- car.switch/n
