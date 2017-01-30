@@ -4,6 +4,7 @@
 
 # Add packages
 require(ggplot2)
+require(plyr)
 
 # Variables
 doors <- c(1,2,3)
@@ -113,10 +114,62 @@ host.open <- function(pch,dc){
 #car.stay <- game.instance("Stay",n)
 #car.switch <- game.instance("Switch",n)
 
-n <- c(10, 100, 1000, 10000)
+n <- c(10, 100, 1000)
 car.stay <- laply(n, function(n) game.instance("Stay",n))
 car.switch <- laply(n, function(n) game.instance("Switch",n))
 # Plot Results
 # Basically, show as n goes to infinity, the probabilities converge to the theoretical predictions
 car.stay.p <- car.stay/n
 car.switch.p <- car.switch/n
+
+# Build a dataframe for this
+
+results.df <- data.frame(n,car.stay,car.switch)
+results.p.df <- data.frame(n,car.stay.p,car.switch.p) 
+
+#ggplot(data = results.p.df, aes(n,car.switch.p))
+ggplot(data = results.p.df, aes(n,car.stay.p,car.switch.p)) +
+  geom_point(aes(n, car.stay.p),color="red") +
+  geom_point(aes(n, car.switch.p))
+#  geom_line(y=car.switch.p)+geom_point() #+scale_x_log10()
+
+# Binomial plots from Distributions.R
+# Bernoulli (Binomial with n = 1)
+p = 0.667
+nb = 1000
+bern_samples = rbinom(nb, 1, p) # Compute random draws
+bern_sample_mean = sum(bern_samples)/length(bern_samples)
+print(paste('p =', as.character(p), '   Sample mean = ', as.character(bern_sample_mean)))
+bern_sample_var = bern_sample_mean * (1-bern_sample_mean)
+bern_var = p*(1-p)
+print(paste('Bernoulli variance = ', as.character(bern_var), '   Sample varience = ', as.character(bern_sample_var)))
+hist(bern_samples)
+
+
+# Binomial
+N = c(10, 100, 1000) # parameter list
+binom_samples = lapply(N, function(x) rbinom(nb, x, p))  # Compute list of random draws
+
+binom_sample_means = lapply(binom_samples, mean)  # Compute list of sample means
+binom_means = N*p
+data.frame(BinomialMean = binom_means, SampleMean = unlist(binom_sample_means))
+
+binom_sample_vars = lapply(binom_samples, var) # Compute list of sample variance
+binom_vars = N*p*(1-p)
+data.frame(BinomialVariance = binom_vars, SampleVariance = unlist(binom_sample_vars))
+par(mfrow=c(1,3))
+invisible(lapply(binom_samples, function(x) hist(x))) # histograms of random draws
+par(mfrow=c(1,1))
+
+hist(unlist(binom_samples),breaks=200,col="red")
+hist()
+
+# Compare Normal Approximation to binomial
+par(mfrow=c(1,3))
+for (i in 1:3){
+  hist(binom_samples[[i]], main=paste(N[i],'Experiments'), freq=FALSE)
+  x_norm = seq(0,N[i], by = 0.025)
+  y_norm = dnorm(x_norm, mean=binom_means[i], sd=sqrt(binom_vars[i]))
+  lines(x_norm, y_norm)
+}
+par(mfrow=c(1,1))
