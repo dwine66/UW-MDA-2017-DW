@@ -14,6 +14,10 @@ states <- c('Closed','Closed','Closed')
 # Define number of games
 n <- 10
 
+# Theoretical probabilities of winning a car
+p.stay = 0.334
+p.switch = 0.667
+
 # Functions
 ###############
 
@@ -102,6 +106,36 @@ host.open <- function(pch,dc){
   }
 }
 
+# Binomial plot function (stolen proudly from Distributions.R!)
+binom.plot <- function(data.df,num.runs,p){
+  N = num.runs # parameter list
+  #binom_samples = lapply(N, function(x) rbinom(nb, x, p))  # Compute list of random draws
+  
+  binom_samples =data.df  # Compute list of random draws
+  
+  binom_sample_means = lapply(binom_samples, mean)  # Compute list of sample means
+  binom_means = N*p
+  data.frame(BinomialMean = binom_means, SampleMean = unlist(binom_sample_means))
+  
+  binom_sample_vars = lapply(binom_samples, var) # Compute list of sample variance
+  binom_vars = N*p*(1-p)
+  data.frame(BinomialVariance = binom_vars, SampleVariance = unlist(binom_sample_vars))
+  
+  par(mfrow=c(1,3))
+  invisible(lapply(binom_samples, function(x) hist(x))) # histograms of random draws
+  par(mfrow=c(1,1))
+  
+  # Compare Normal Approximation to binomial
+  par(mfrow=c(1,3))
+  for (i in 1:3){
+    hist(binom_samples[[i]], main=paste(N[i],'Experiments'), freq=FALSE)
+    x_norm = seq(0,N[i], by = 0.025)
+    y_norm = dnorm(x_norm, mean=binom_means[i], sd=sqrt(binom_vars[i]))
+    lines(x_norm, y_norm)
+  }
+  par(mfrow=c(1,1))
+}
+
 ###############
 
 # Main Loop
@@ -114,62 +148,45 @@ host.open <- function(pch,dc){
 #car.stay <- game.instance("Stay",n)
 #car.switch <- game.instance("Switch",n)
 
-n <- c(10, 100, 1000)
+# m is the ensemble counter - that is, we will run m sets of n games
+m <- 100
+
+# Set up data frames to hold ensemble results
+car.stay.df <-data.frame(low.st=rep(NA,m),med.st=rep(NA,m),hi.st=rep(NA,m))
+car.switch.df <-data.frame(low.sw=rep(NA,m),med.sw=rep(NA,m),hi.sw=rep(NA,m))
+
+for (i in 1:m){
+n <- c(10, 100, 1000) # number of games in an ensemble
+
 car.stay <- laply(n, function(n) game.instance("Stay",n))
 car.switch <- laply(n, function(n) game.instance("Switch",n))
+
+car.stay.df[i,] <- car.stay
+car.switch.df[i,] <- car.switch
+
+}
+
+car.stay.binom <- binom.plot(car.stay.df,n,p.stay)
+car.switch.binom <- binom.plot(car.switch.df,n,p.switch)
+
 # Plot Results
 # Basically, show as n goes to infinity, the probabilities converge to the theoretical predictions
-car.stay.p <- car.stay/n
-car.switch.p <- car.switch/n
+#car.stay.ens.p <- laply(n, function(n) car.stay/n)
+#car.switch.ens.p <- car.switch.ens./n
 
-# Build a dataframe for this
+car.stay.means = lapply(data.frame(car.stay.df), FUN=mean)
+car.stay.sd = lapply(data.frame(car.stay.df), FUN=sd)
 
-results.df <- data.frame(n,car.stay,car.switch)
-results.p.df <- data.frame(n,car.stay.p,car.switch.p) 
+car.combined.df <- cbind(car.stay.df,car.switch.df)
 
-#ggplot(data = results.p.df, aes(n,car.switch.p))
-ggplot(data = results.p.df, aes(n,car.stay.p,car.switch.p)) +
-  geom_point(aes(n, car.stay.p),color="red") +
-  geom_point(aes(n, car.switch.p))
-#  geom_line(y=car.switch.p)+geom_point() #+scale_x_log10()
+#ggplot(car.stay.df,aes(x=low))+geom_histogram(binwidth=3,fill='green')+
+#  geom_histogram(binwidth=5,aes(med),fill='red')+
+#  geom_histogram(binwidth=5,aes(hi),fill='blue')
 
-# Binomial plots from Distributions.R
-# Bernoulli (Binomial with n = 1)
-p = 0.667
-nb = 1000
-bern_samples = rbinom(nb, 1, p) # Compute random draws
-bern_sample_mean = sum(bern_samples)/length(bern_samples)
-print(paste('p =', as.character(p), '   Sample mean = ', as.character(bern_sample_mean)))
-bern_sample_var = bern_sample_mean * (1-bern_sample_mean)
-bern_var = p*(1-p)
-print(paste('Bernoulli variance = ', as.character(bern_var), '   Sample varience = ', as.character(bern_sample_var)))
-hist(bern_samples)
+ggplot(car.combined.df,aes(x=low.st))+geom_histogram(binwidth=3,fill='red')+
+  geom_histogram(binwidth=5,aes(med.st),fill='red')+
+  geom_histogram(binwidth=5,aes(hi.st),fill='red')+
+  geom_histogram(binwidth=5,aes(low.sw),fill='blue')+
+  geom_histogram(binwidth=5,aes(med.sw),fill='blue')+
+  geom_histogram(binwidth=5,aes(hi.sw),fill='blue')
 
-
-# Binomial
-N = c(10, 100, 1000) # parameter list
-binom_samples = lapply(N, function(x) rbinom(nb, x, p))  # Compute list of random draws
-
-binom_sample_means = lapply(binom_samples, mean)  # Compute list of sample means
-binom_means = N*p
-data.frame(BinomialMean = binom_means, SampleMean = unlist(binom_sample_means))
-
-binom_sample_vars = lapply(binom_samples, var) # Compute list of sample variance
-binom_vars = N*p*(1-p)
-data.frame(BinomialVariance = binom_vars, SampleVariance = unlist(binom_sample_vars))
-par(mfrow=c(1,3))
-invisible(lapply(binom_samples, function(x) hist(x))) # histograms of random draws
-par(mfrow=c(1,1))
-
-hist(unlist(binom_samples),breaks=200,col="red")
-hist()
-
-# Compare Normal Approximation to binomial
-par(mfrow=c(1,3))
-for (i in 1:3){
-  hist(binom_samples[[i]], main=paste(N[i],'Experiments'), freq=FALSE)
-  x_norm = seq(0,N[i], by = 0.025)
-  y_norm = dnorm(x_norm, mean=binom_means[i], sd=sqrt(binom_vars[i]))
-  lines(x_norm, y_norm)
-}
-par(mfrow=c(1,1))
