@@ -115,11 +115,11 @@ binom.plot <- function(data.df,num.runs,p){
   
   binom_sample_means = lapply(binom_samples, mean)  # Compute list of sample means
   binom_means = N*p
-  data.frame(BinomialMean = binom_means, SampleMean = unlist(binom_sample_means))
+  df.mean <- data.frame(BinomialMean = binom_means, SampleMean = unlist(binom_sample_means))
   
   binom_sample_vars = lapply(binom_samples, var) # Compute list of sample variance
   binom_vars = N*p*(1-p)
-  data.frame(BinomialVariance = binom_vars, SampleVariance = unlist(binom_sample_vars))
+  df.var <- data.frame(BinomialVariance = binom_vars, SampleVariance = unlist(binom_sample_vars))
   
   par(mfrow=c(1,3))
   invisible(lapply(binom_samples, function(x) hist(x))) # histograms of random draws
@@ -134,6 +134,8 @@ binom.plot <- function(data.df,num.runs,p){
     lines(x_norm, y_norm)
   }
   par(mfrow=c(1,1))
+  
+  return(list(df.mean,df.var))
 }
 
 ###############
@@ -166,8 +168,10 @@ car.switch.df[i,] <- car.switch
 
 }
 
+# Draw binomial plots and capture stats
 car.stay.binom <- binom.plot(car.stay.df,n,p.stay)
 car.switch.binom <- binom.plot(car.switch.df,n,p.switch)
+
 
 # Plot Results
 # Basically, show as n goes to infinity, the probabilities converge to the theoretical predictions
@@ -179,14 +183,23 @@ car.stay.sd = lapply(data.frame(car.stay.df), FUN=sd)
 
 car.combined.df <- cbind(car.stay.df,car.switch.df)
 
+#Create probabilites from data
+car.stay.df.p <- llply(car.stay.df, car.stay.df/n)
+
+car.combined.df.p <- cbind(car.stay.df,car.switch.df)
+
 #ggplot(car.stay.df,aes(x=low))+geom_histogram(binwidth=3,fill='green')+
 #  geom_histogram(binwidth=5,aes(med),fill='red')+
 #  geom_histogram(binwidth=5,aes(hi),fill='blue')
 
-ggplot(car.combined.df,aes(x=low.st))+geom_histogram(binwidth=3,fill='red')+
+ggplot(car.combined.df,aes(x=low.st))+geom_histogram(binwidth=2,fill='red')+
+  xlim(0,1000) +
   geom_histogram(binwidth=5,aes(med.st),fill='red')+
   geom_histogram(binwidth=5,aes(hi.st),fill='red')+
-  geom_histogram(binwidth=5,aes(low.sw),fill='blue')+
+  geom_histogram(binwidth=5,aes(low.sw),color='blue',fill="NA")+
   geom_histogram(binwidth=5,aes(med.sw),fill='blue')+
-  geom_histogram(binwidth=5,aes(hi.sw),fill='blue')
+  geom_histogram(binwidth=5,aes(hi.sw),fill='blue') + 
+  xlab("Number of cars won")+ylab("Frequency") +
+  ggtitle("Cars won by switching (blue) vs. staying (red)") 
+
 
