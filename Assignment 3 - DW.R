@@ -111,7 +111,7 @@ binom.plot <- function(data.df,num.runs,p){
   N = num.runs # parameter list
   #binom_samples = lapply(N, function(x) rbinom(nb, x, p))  # Compute list of random draws
   
-  binom_samples =data.df  # Compute list of random draws
+  binom_samples = data.df  # Load data list
   
   binom_sample_means = lapply(binom_samples, mean)  # Compute list of sample means
   binom_means = N*p
@@ -129,7 +129,7 @@ binom.plot <- function(data.df,num.runs,p){
   par(mfrow=c(1,3))
   for (i in 1:3){
     hist(binom_samples[[i]], main=paste(N[i],'Experiments'), freq=FALSE)
-    x_norm = seq(0,N[i], by = 0.025)
+    x_norm = seq(0,N[i], by = 0.01)
     y_norm = dnorm(x_norm, mean=binom_means[i], sd=sqrt(binom_vars[i]))
     lines(x_norm, y_norm)
   }
@@ -169,37 +169,42 @@ car.switch.df[i,] <- car.switch
 }
 
 # Draw binomial plots and capture stats
-car.stay.binom <- binom.plot(car.stay.df,n,p.stay)
-car.switch.binom <- binom.plot(car.switch.df,n,p.switch)
-
+car.stay.binom.p <- binom.plot(car.stay.df,n,p.stay)
+car.switch.binom.p <- binom.plot(car.switch.df,n,p.switch)
 
 # Plot Results
 # Basically, show as n goes to infinity, the probabilities converge to the theoretical predictions
-#car.stay.ens.p <- laply(n, function(n) car.stay/n)
-#car.switch.ens.p <- car.switch.ens./n
-
-car.stay.means = lapply(data.frame(car.stay.df), FUN=mean)
-car.stay.sd = lapply(data.frame(car.stay.df), FUN=sd)
 
 car.combined.df <- cbind(car.stay.df,car.switch.df)
 
-#Create probabilites from data
-car.stay.df.p <- llply(car.stay.df, car.stay.df/n)
+# Create probabilites from data
+# I know this is really ugly!!!  There must be a better way but I haven't figured it out yet...
+car.stay.df.p <- car.stay.df
+car.switch.df.p <- car.switch.df
 
-car.combined.df.p <- cbind(car.stay.df,car.switch.df)
+for (i in 1:3){
+  for(j in 1:m){
+    car.stay.df.p[j,i] <- car.stay.df[j,i]/n[i]
+    car.switch.df.p[j,i] <- car.switch.df[j,i]/n[i]
 
-#ggplot(car.stay.df,aes(x=low))+geom_histogram(binwidth=3,fill='green')+
-#  geom_histogram(binwidth=5,aes(med),fill='red')+
-#  geom_histogram(binwidth=5,aes(hi),fill='blue')
+  }
+}
 
-ggplot(car.combined.df,aes(x=low.st))+geom_histogram(binwidth=2,fill='red')+
-  xlim(0,1000) +
-  geom_histogram(binwidth=5,aes(med.st),fill='red')+
-  geom_histogram(binwidth=5,aes(hi.st),fill='red')+
-  geom_histogram(binwidth=5,aes(low.sw),color='blue',fill="NA")+
-  geom_histogram(binwidth=5,aes(med.sw),fill='blue')+
-  geom_histogram(binwidth=5,aes(hi.sw),fill='blue') + 
-  xlab("Number of cars won")+ylab("Frequency") +
+car.combined.df.p <- cbind(car.stay.df.p,car.switch.df.p)
+
+bw <-.02
+
+ggplot(car.combined.df.p,aes(x=low.st))+
+  geom_histogram(binwidth=bw,color='red', fill='NA',linetype='dotted',size=1)+
+  geom_histogram(binwidth=bw,aes(med.st),color='red', fill='NA',linetype='dashed',size=1)+
+  geom_histogram(binwidth=bw,aes(hi.st),color='red', fill='NA',linetype='solid',size=1)+
+  geom_histogram(binwidth=bw,aes(low.sw),color='blue', fill='NA',linetype='dotted',size=1)+
+  geom_histogram(binwidth=bw,aes(med.sw),color='blue', fill='NA',linetype='dashed',size=1)+
+  geom_histogram(binwidth=bw,aes(hi.sw),color='blue', fill='NA',linetype='solid',size=1) + 
+  scale_x_continuous(breaks=seq(0,1,1/6), labels = c("0","1/6","1/3","1/2","2/3","5/6","1")) +
+  xlab("Probability of winning a car")+ylab("Frequency") +
   ggtitle("Cars won by switching (blue) vs. staying (red)") 
 
-
+#Print mean and variance of stay and switch results
+car.stay.binom.p
+car.switch.binom.p
