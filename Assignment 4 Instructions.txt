@@ -1,0 +1,17 @@
+Test hypotheses for the price of automobiles:
+
+    >  Compare and test Normality the distributions of price and log price – Use both a graphical method and a formal test.
+
+    > Test significance of price (log price) stratified by a) fuel type, b) aspiration, and c) rear vs. front wheel drive. Use both graphical methods and the formal test.
+
+    > Apply ANOVA to the auto price data to compare the price (or log price if closer to a Normal distribution) of autos stratified by number of doors, and body style – two sets of tests.
+
+        - Graphically explore the differences between the price conditioned by the categories of each variable – Hint, make sure you have enough data for each category.
+
+         - Use standard ANOVA and Tukey ANOVA to test the differences of these groups.
+
+You must submit:
+
+- One R-script containing all code required for your analysis. Please include comments so that your code is easy to follow.
+
+- One document discussing and supporting your conclusions, presented in a complete and professional style. 
