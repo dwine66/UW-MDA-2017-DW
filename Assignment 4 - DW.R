@@ -36,6 +36,20 @@ plot.t <- function(a, b, cols = c(a, b), nbins = 20){
   par(mfrow = c(1, 1))
 }
 
+# ANOVA Plot Function
+ANOVA.plot <- function (df){
+df$group = factor(df$group) # Make sure your groups are a factor (for further analysis below)
+boxplot(df$val ~ df$group)
+
+df_aov = aov(val ~ group, data = df)
+summary(df_aov)
+print(df_aov)
+
+tukey_aov = TukeyHSD(df_aov)  # Tukey's Range test:
+tukey_aov
+plot(tukey_aov)
+}
+
 ####
 # Main Code
 ####
@@ -68,9 +82,13 @@ shapiro.test(price.log)
 # Yes, log(price) is much closer to normal than price - although still not particularly normal.
 # So use that instead.
 auto.data$price <- log(auto.data$price)
-####
 
+###
 # Significance tests
+###
+
+# I tried to write a function for this but couldn't figure out how to pass
+# column names into the dplyr filter function.  It passes the headers but not the data!
 
 # This function takes two quantities, queries the dataset, and returns the t-test and plots
 sigtest <- function(plotvar, condvar,a,b){
@@ -84,9 +102,8 @@ sigtest <- function(plotvar, condvar,a,b){
 }
 
 # v <- sigtest('price','fuel.type','gas','diesel')
-# I tried to write a function for this but couldn't figure out how to pass
-# column names into the dplyr filter function.  It passes the headers but not the data!
 
+# So do it the ugly way...
 auto.gas=filter(auto.data, fuel.type =='gas')
 auto.diesel=filter(auto.data, fuel.type =='diesel')
 
@@ -105,30 +122,26 @@ t.test(auto.gas$price,auto.diesel$price, alternative = "two.sided")
 t.test(auto.std$price,auto.turbo$price, alternative = "two.sided")
 t.test(auto.fwd$price,auto.rwd$price, alternative = "two.sided")
 
-####
+###
 # ANOVA - Doors
-# Using log10(price) as it is closer to normal
+###
 
 auto.2d=filter(auto.data, num.of.doors == 'two')
 auto.4d=filter(auto.data, num.of.doors == 'four')
 
-df <- data.frame('group'=c(rep('2d',length(auto.2d$price)),
+df.door <- data.frame('group'=c(rep('2d',length(auto.2d$price)),
                            rep('4d',length(auto.4d$price))),
                  'val' = c(auto.2d$price,auto.4d$price))
 
-df$group = factor(df$group) # Make sure your groups are a factor (for further analysis below)
-boxplot(df$val ~ df$group)
 
-df_aov = aov(val ~ group, data = df)
-summary(df_aov)
-print(df_aov)
+ANOVA.plot(df.door)
 
-tukey_aov = TukeyHSD(df_aov)  # Tukey's Range test:
-tukey_aov
-plot(tukey_aov)
-####
+###
 # ANOVA - Body Type
-count(auto.data,body.style)
+###
+
+body.count <- count(auto.data,body.style)
+hist(body.count[2])
 
 auto.con=filter(auto.data, body.style == 'convertible')
 auto.har=filter(auto.data, body.style == 'hardtop')
@@ -136,20 +149,11 @@ auto.hat=filter(auto.data, body.style == 'hatchback')
 auto.sed=filter(auto.data, body.style == 'sedan')
 auto.wag=filter(auto.data, body.style == 'wagon')
 
-df <- data.frame('group'=c(rep('Conv.',length(auto.con$price)),
+df.body <- data.frame('group'=c(rep('Conv.',length(auto.con$price)),
                            rep('Hard',length(auto.har$price)),
                            rep('Hat.',length(auto.hat$price)),
                            rep('Sedan',length(auto.sed$price)),
                            rep('Wagon',length(auto.wag$price))),
                  'val' = c(auto.con$price,auto.har$price,auto.hat$price,auto.sed$price,auto.wag$price))
 
-df$group = factor(df$group) # Make sure your groups are a factor (for further analysis below)
-boxplot(df$val ~ df$group)
-
-df_aov = aov(val ~ group, data = df)
-summary(df_aov)
-print(df_aov)
-
-tukey_aov = TukeyHSD(df_aov)  # Tukey's Range test:
-tukey_aov
-plot(tukey_aov)
+ANOVA.plot(df.body)
