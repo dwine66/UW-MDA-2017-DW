@@ -23,18 +23,28 @@ require ('repr')
 #> Of the next hundred drivers what are the number of texting drivers in the 90% HDI?
 #> Are the drivers in this area better or worse that the national figures indicate?
 
-beta.par <- beta.select(list(p=0.5, x=0.2), list(p=0.75, x=.28))
+beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=.3))
 beta.par ## The parameters of my Beta distribution
 
 options(repr.plot.width=6, repr.plot.height=5)
 triplot(beta.par, c(0, 0))
 
-beta.par + c(6, 4)
+# First observation: 2 texting drivers out of 20
+beta.par + c(2, 18)
+triplot(beta.par, c(2, 18))
+
+# Second observation: 4 texting drivers out of 20
+beta.par + c(4, 16)
+triplot(beta.par, c(4, 16))
+
+# Third observation: 1 texting driver out of 20
+beta.par + c(1, 19)
+triplot(beta.par, c(1, 19))
 
 # Simulate from the posterior and 
 ## compute confidence intervals
 options(repr.plot.width=8, repr.plot.height=5)
-beta.post.par <- beta.par + c(25, 15)
+beta.post.par <- beta.par + c(2, 18)
 post.sample <- rbeta(10000, beta.post.par[1], beta.post.par[2])
 par(mfrow = c(1,2))
 quants = quantile(post.sample, c(0.05, 0.95))
@@ -49,12 +59,13 @@ qqnorm(post.sample)
 par(mfrow = c(1,1))
 quants
 
-predplot(beta.post.par, 25, 15)
+predplot(beta.post.par, 2, 18)
 
-n <- 60
+# Now look at 100 drivers
+n <- 100
 s <- 0:n
 pred.probs <- pbetap(beta.post.par, n, s)
 plot(s, pred.probs, type="h", 
-     main = paste('Probability distribution of successes in', as.character(n), 'trials'),
+     main = paste('Probability distribution of the number of drivers texting at the intersection, ', as.character(n), 'trials'),
      xlab = 'Successes')
 discint(cbind(s, pred.probs), 0.90)
