@@ -1,0 +1,14 @@
+﻿Apply bootstrap resampling to the auto price data as follows:
+- Compare the difference of the bootstrap resampled mean of the log price of autos grouped by 1) aspiration and 2) fuel type. Use both numerical and graphical methods for your comparison. Are these means different within a 95% confidence interval? How do your conclusions compare to the results you obtained using the t-test last week?
+- Compare the differences of the bootstrap resampled mean of the log price of the autos grouped by body style. You will need to do this pair wise; e.g. between each possible pairing of body styles. Use both numerical and graphical methods for your comparison. Which pairs of means are different within a 95% confidence interval? How do your conclusions compare to the results you obtained from the ANOVA and Tukey’s HSD analysis you performed last week?
+You must submit:
+- One R-script containing all code required for your analysis. Please include comments so that your code is easy to follow.
+- One document discussing and supporting your conclusions, presented in a complete and professional style. 
+
+I think you missed the point of how the bootstap tests work. You should do one of either:
+
+1. compare the  95% CI of the  two bootstap mean distributions if they overlap.
+
+2. or, determine if 0 is within the 95% CI of the bootstrap distributions of the diference of means.
+
+If you would like to redo and resubmit, I will regrade. 
