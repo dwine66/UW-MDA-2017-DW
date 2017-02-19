@@ -11,6 +11,7 @@ require(dplyr)
 require(HistData)
 require(resample)
 require(simpleboot)
+require(repr)
 
 # Functions
 
@@ -60,6 +61,21 @@ mean.boot.a <- one.boot(a, mean, R = 100000)
 mean.boot.b <- one.boot(b, mean, R = 100000)
 plot.t(mean.boot.a$t, mean.boot.b$t, var,a.type,b.type,nbins = 80)
 t.test(mean.boot.a$t,mean.boot.b$t, alternative = "two.sided")
+}
+
+plot.hist <- function(a, maxs, mins, cols = 'difference of means', nbins = 80, p = 0.05) {
+  breaks = seq(maxs, mins, length.out = (nbins + 1))
+  hist(a, breaks = breaks, main = paste('Histogram of', cols), xlab = cols)
+  abline(v = mean(a), lwd = 4, col = 'red')
+  abline(v = 0, lwd = 4, col = 'blue')
+  abline(v = quantile(a, probs = p/2), lty = 3, col = 'red', lwd = 3)  
+  abline(v = quantile(a, probs = (1 - p/2)), lty = 3, col = 'red', lwd = 3)
+}
+
+plot.diff <- function(a, cols = 'difference of means', nbins = 80, p = 0.05){
+  maxs = max(a)
+  mins = min(a)
+  plot.hist(a, maxs, mins, cols = cols[1])
 }
 
 ####
@@ -131,12 +147,21 @@ auto.rwd=data.matrix(select(filter(auto.data, drive.wheels =='rwd'),price))
 plot.t(auto.gas, auto.diesel, 'log(price)','Fuel Type = Gas','Fuel Type = Diesel')
 
 ## Now plot Resampled fuel types:
+options(repr.plot.width=6, repr.plot.height=4)
+two.boot.mean = two.boot(auto.gas, auto.diesel, mean, R = 100000)
+plot.diff(two.boot.mean$t)
+
+#Old graph
 boot.graph(auto.gas,auto.diesel,'log(price)','Resampled Gas','Resampled Diesel')
 
 plot.t(auto.std, auto.turbo, 'log(price)','Aspiration = std','Aspiration = turbo')
 plot.t(auto.fwd, auto.rwd, 'log(price)','Drive Wheels = fwd','Drive Wheels = rwd')
 
 ## Now plot Resampled aspiration:
+options(repr.plot.width=6, repr.plot.height=4)
+two.boot.mean = two.boot(auto.std, auto.turbo, mean, R = 100000)
+plot.diff(two.boot.mean$t)
+
 boot.graph(auto.std,auto.turbo,'log(price)','Resampled std','Resampled turbo')
 
 ## Two-tailed test
@@ -185,10 +210,16 @@ df.body <- data.frame('group'=c(rep('Hat.',length(auto.hat$price)),
 
 ANOVA.plot(df.body)
 
-## Bootstrap the means of each pair:
-## Now plot resampled pairs:
-boot.graph(auto.sed$price,auto.hat$price,'log(price)','Resampled Sedan','Resampled Hatchback')
-boot.graph(auto.wag$price,auto.hat$price,'log(price)','Resampled Wagon','Resampled Hatchback')
-boot.graph(auto.wag$price,auto.sed$price,'log(price)','Resampled Wagon','Resampled Sedan')
+## Bootstrap the difference of the means of each pair:
 
+options(repr.plot.width=6, repr.plot.height=4)
+two.boot.mean = two.boot(auto.sed$price,auto.hat$price, mean, R = 100000)
+plot.diff(two.boot.mean$t)
 
+options(repr.plot.width=6, repr.plot.height=4)
+two.boot.mean = two.boot(auto.wag$price,auto.hat$price, mean, R = 100000)
+plot.diff(two.boot.mean$t)
+
+options(repr.plot.width=6, repr.plot.height=4)
+two.boot.mean = two.boot(auto.wag$price,auto.sed$price, mean, R = 100000)
+plot.diff(two.boot.mean$t)
