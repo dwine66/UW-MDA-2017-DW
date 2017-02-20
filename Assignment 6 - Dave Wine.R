@@ -13,7 +13,7 @@ require ('repr')
 #- You observe cars at a location three times and note the number of texting drivers:
 #  2 texting out of 20 drivers
 #  4 texting out of 20 drivers
-# 1 texting out of 20 drivers
+#  1 texting out of 20 drivers
 # > Given these data
 #- Compute the Beta prior, and report the coefficients 	
 #- Plot the prior, likelihood and posterior three times as you update your belief based on collecting more data
@@ -23,28 +23,29 @@ require ('repr')
 #> Of the next hundred drivers what are the number of texting drivers in the 90% HDI?
 #> Are the drivers in this area better or worse that the national figures indicate?
 
-beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=.3))
+beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=0.3))
 beta.par ## The parameters of my Beta distribution
 
 options(repr.plot.width=6, repr.plot.height=5)
 triplot(beta.par, c(0, 0))
-
+beta.par
 # First observation: 2 texting drivers out of 20
 beta.par + c(2, 18)
 triplot(beta.par, c(2, 18))
-
+beta.par
 # Second observation: 4 texting drivers out of 20
-beta.par + c(4, 16)
-triplot(beta.par, c(4, 16))
-
+beta.par + c(6, 34)
+triplot(beta.par, c(6, 34))
+beta.par
 # Third observation: 1 texting driver out of 20
-beta.par + c(1, 19)
-triplot(beta.par, c(1, 19))
+beta.par + c(7, 53)
+triplot(beta.par, c(7, 53))
+beta.par
 
 # Simulate from the posterior and 
 ## compute confidence intervals
 options(repr.plot.width=8, repr.plot.height=5)
-beta.post.par <- beta.par + c(2, 18)
+beta.post.par <- beta.par + c(2+4+1,18+16+19)
 post.sample <- rbeta(10000, beta.post.par[1], beta.post.par[2])
 par(mfrow = c(1,2))
 quants = quantile(post.sample, c(0.05, 0.95))
@@ -59,7 +60,8 @@ qqnorm(post.sample)
 par(mfrow = c(1,1))
 quants
 
-predplot(beta.post.par, 2, 18)
+# 7 successes out of 60 observations
+predplot(beta.post.par, 60, 7)
 
 # Now look at 100 drivers
 n <- 100
@@ -69,3 +71,32 @@ plot(s, pred.probs, type="h",
      main = paste('Probability distribution of the number of drivers texting at the intersection, ', as.character(n), 'trials'),
      xlab = 'Successes')
 discint(cbind(s, pred.probs), 0.90)
+
+# Build CDF
+pred.cdf <-rep(0,100)
+for (i in seq(1,n,1)){
+  for (j in seq(1,i,1)) {
+    pred.cdf[i]<-pred.cdf[i]+pred.probs[j]
+  }
+}
+   
+# National Drivers 
+plot(pred.cdf)
+
+# Now look at 100 drivers
+n <- 100
+s <- 0:n
+pred.probs <- pbetap(beta.par, n, s)
+plot(s, pred.probs, type="h", 
+     main = paste('Probability distribution of the number of drivers texting at the intersection, ', as.character(n), 'trials'),
+     xlab = 'Successes')
+discint(cbind(s, pred.probs), 0.90)
+
+pred.cdf <-rep(0,100)
+for (i in seq(1,n,1)){
+  for (j in seq(1,i,1)) {
+    pred.cdf[i]<-pred.cdf[i]+pred.probs[j]
+  }
+}
+
+plot(pred.cdf)

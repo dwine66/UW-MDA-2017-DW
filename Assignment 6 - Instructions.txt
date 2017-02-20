@@ -1,0 +1,19 @@
+Assignment 6
+
+Probability of texting.
+  – You are asked to compute the probability that the driver of a car is texting at a specific intersection.
+  – Nationally the cumulative probability that a driver is texting is:
+      > P = 0.5, at x = 0.1
+      > P = 0.75 at x = 0.3
+  – You observe cars at a location three times and note the number of texting drivers:
+2 texting out of 20 drivers
+4 texting out of 20 drivers
+1 texting out of 20 drivers
+> Given these data
+   – Compute the Beta prior, and report the coefficients
+  – Plot the prior, likelihood and posterior three times as you update your belief based on collecting more data
+  – Simulate the final posterior distribution and do the following:
+     > Plot the posterior with the 90% HDI shown
+      > Report the upper and lower limits of the 90% HDI
+      > Of the next hundred drivers what are the number of texting drivers in the 90% HDI?
+      > Are the drivers in this area better or worse that the national figures indicate?
