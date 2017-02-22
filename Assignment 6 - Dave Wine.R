@@ -49,7 +49,8 @@ post.sim <- function (post, title){
   abline(v = quants[2], lty = 3, col = 'red', lwd = 3)
   qqnorm(post.sample)
   par(mfrow = c(1,1))
-  quants
+
+  list(quants,paste("Mean: ",mean(post.sample)),paste("Median: ",median(post.sample)))
 }
 
 drivers.hund <- function(dist,n,title){
@@ -88,8 +89,10 @@ beta.plot(beta.par,7,53) # results after 60
 # The posterior is just the number of successes relative to the total number of trials
 beta.post.par <- beta.par + c(2+4+1,18+16+19)
 
-post.sim(beta.post.par, "Local Drivers")
-post.sim(beta.par,"National Average")
+post.sim.local <- post.sim(beta.post.par, "Local Drivers")
+post.sim.local
+post.sim.natl <-post.sim(beta.par,"National Average")
+post.sim.natl
 
 # 7 successes out of 60 observations
 predplot(beta.post.par, 60, 7)
@@ -103,14 +106,14 @@ PDF <- data.frame(local.pred$PDF,natl.pred$PDF)
 CDF <- data.frame(local.pred$CDF,natl.pred$CDF)
 
 # I tried to use ggplot for this but I could not figure it out for this plot....
-ggplot(CDF,aes(x=row.names(CDF),y=local.pred$CDF,y=natl.pred$CDF))+geom_bar()
+#ggplot(CDF,aes(x=row.names(CDF),y=local.pred$CDF,y=natl.pred$CDF))+geom_bar()
 
 # Plot PDFs
 plot(local.pred$PDF,type="l",col="red",xaxt="n",yaxt="n",xlab="",ylab="",ylim=c(0,.2))
 par(new=TRUE)
 plot(natl.pred$PDF,type='l',col ="blue",xlab="",ylab="")
 title("Comparison of Local and National Drivers",xlab="Number of Drivers",ylab="Probability")
-legend("bottomright",lwd=c(2,2),col=c("red","blue"),legend=c("Local","National"))
+legend("topright",lwd=c(2,2),col=c("red","blue"),legend=c("Local","National"))
 
 #Plot CDFs
 plot(local.pred$CDF,type="l",col="red",xlab="",ylab="")
