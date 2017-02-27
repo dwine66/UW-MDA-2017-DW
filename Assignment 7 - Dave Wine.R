@@ -28,21 +28,21 @@ read.auto = function(file = 'Automobile price data _Raw_.csv'){
 }
 
 # Plot function
-plot.svd.reg <- function(df, k = 4){
+plot.svd.reg <- function(df, k = 4,modelname){
   require(ggplot2)
   require(gridExtra)
   
   p1 <- ggplot(df) + 
     geom_point(aes(score, resids), size = 2) + 
     stat_smooth(aes(score, resids)) +
-    ggtitle('Residuals vs. fitted values')
+    ggtitle(paste('Residuals vs. fitted values: ',modelname))
   
   p2 <- ggplot(df, aes(resids)) +
     geom_histogram(aes(y = ..density..)) +
     geom_density(color = 'red', fill = 'red', alpha = 0.2) +
-    ggtitle('Histogram of residuals')
+    ggtitle(paste('Histogram of residuals: ',modelname))
   
-  qqnorm(df$resids)
+  qqnorm(df$resids,main=paste("Normal Q-Q Plot: ",modelname))
   
   grid.arrange(p1, p2, ncol = 2)
   
@@ -51,7 +51,7 @@ plot.svd.reg <- function(df, k = 4){
   p3 = ggplot(df) + 
     geom_point(aes(score, std.resids), size = 2) + 
     stat_smooth(aes(score, std.resids)) +
-    ggtitle('Standardized residuals vs. fitted values')
+    ggtitle(paste('Standardized residuals vs. fitted values: ',modelname))
   print(p3) 
   
   n = nrow(df)
@@ -89,7 +89,7 @@ auto.data$price <- log(auto.data$price)
 auto.mat <- model.matrix(price ~ ., data = auto.data)
 auto.mat[1:10, ]
 
-# Simple linear model
+# Simple linear model against all variables
 lm.price <- lm(price ~ ., data = auto.data)
 summary(lm.price)
 plot(lm.price)
@@ -100,19 +100,13 @@ lm.step$anova # ANOVA of the result
 summary(lm.step) # Summary of the best model
 plot(lm.step)
 
-## Interaction Terms
-lm.interaction = lm(childHeight ~ mother*father, data = males.ext)
-summary(lm.interaction)
-plot(lm.interaction)
-
 ### SVD
 M = as.matrix(auto.mat)
 MTM = t(M) %*% M
 MTM 
+
 # Create mSVD
-
 mSVD <- svd(MTM)
-
 mSVD$d
 
 # Note that everything below about the 10th element is 10^4 less than the largest one. So zero out
@@ -131,7 +125,7 @@ MTMTM = mInv %*% t(M)
 dim(MTMTM)
 
 # Find model coefficients
-b <- MTMTM %*% auto.data$price
+b <- MTMTM %*% (auto.data$price - mean(auto.data$price))
 
 # Compute Residuals
 auto.data$score = M %*% b + mean(auto.data$price)
@@ -140,9 +134,9 @@ auto.data$resids = auto.data$score - auto.data$price
 #Plot summary stats
 require(repr)
 options(repr.pmales.extlot.width=8, repr.plot.height=4)
-plot.svd.reg(auto.data, thres)
+plot.svd.reg(auto.data, thres,"SVD")
 
-## Elastic Net Regression
+## Ridge Regression
 cat('Compute and print the inverse singular value matrix')
 lambda = 0.1
 d.trim = 1/ (mSVD$d + lambda)
@@ -158,7 +152,7 @@ b2 <- MTMTM %*% auto.data$price
 auto.data$score = M %*% b2 + mean(auto.data$price)
 auto.data$resids = auto.data$score - auto.data$price
 
-plot.svd.reg(auto.data,thres)
+plot.svd.reg(auto.data,thres,"Ridge")
 
 ## Elastic Net Regression
 
@@ -178,7 +172,7 @@ plot(mod.ridge.lasso, xvar = 'dev', label = TRUE)
 
 auto.data$score = predict(mod.ridge.lasso, newx = M)[, 15]
 auto.data$resids = auto.data$score - auto.data$price
-plot.svd.reg(auto.data)
+plot.svd.reg(auto.data,thres,"Elastic Net")
 
 
 
