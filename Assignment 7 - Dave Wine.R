@@ -67,6 +67,12 @@ plot.svd.reg <- function(df, k = 4,modelname){
   adjR2  <- 1.0 - (SSR/SST) * ((n - 1)/(n - k - 1))
   cat(paste('Adjusted R^2 =', as.character(adjR2)), '\n')
 }
+
+EN.plot <-function(var,title){
+  plot(var, xvar = 'lambda', label = TRUE,main=title)
+  plot(var, xvar = 'dev', label = TRUE,main=title)
+}
+
 ###
 # Main Code
 ###
@@ -108,6 +114,8 @@ MTM
 # Create mSVD
 mSVD <- svd(MTM)
 mSVD$d
+
+plot(mSVD$d,log="y",main ="log(mSVD)")
 
 # Note that everything below about the 10th element is 10^4 less than the largest one. So zero out
 # everything from there on down.
@@ -158,22 +166,19 @@ plot.svd.reg(auto.data,thres,"Ridge")
 
 require(glmnet)
 b = as.matrix(auto.data$price)
+
 mod.ridge = glmnet(M, b, family = 'gaussian', nlambda = 20, alpha = 0.0)
-plot(mod.ridge, xvar = 'lambda', label = TRUE)
-plot(mod.ridge, xvar = 'dev', label = TRUE)
+EN.plot(mod.ridge,paste("Ridge with alpha = 0.0"))
 
 mod.lasso = glmnet(M, b, family = 'gaussian', nlambda = 20, alpha = 1.0)
-plot(mod.lasso, xvar = 'lambda', label = TRUE)
-plot(mod.lasso, xvar = 'dev', label = TRUE)
+EN.plot(mod.lasso,paste("Lasso with alpha = 1.0"))
 
 mod.ridge.lasso = glmnet(M, b, family = 'gaussian', nlambda = 20, alpha = 0.5)
-plot(mod.ridge.lasso, xvar = 'lambda', label = TRUE)
-plot(mod.ridge.lasso, xvar = 'dev', label = TRUE)
+EN.plot(mod.ridge.lasso,paste("Elastic Net with alpha = 0.5"))
+
+## Evaluate the model
 
 auto.data$score = predict(mod.ridge.lasso, newx = M)[, 15]
 auto.data$resids = auto.data$score - auto.data$price
 plot.svd.reg(auto.data,thres,"Elastic Net")
-
-
-
 
