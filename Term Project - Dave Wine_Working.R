@@ -24,60 +24,6 @@ require(LearnBayes)
 
 ### Functions
 
-# File read function
-read.datafile = function(file = 'Automobile price data _Raw_.csv',skip=0){
-  datafile.data <- read.csv(file, header=TRUE, stringsAsFactors=FALSE,skip=skip)
-  
-#  numcols <- c('bore','stroke','horsepower','price','peak.rpm')
-#  gtd.data[, numcols]<-lapply(auto.data[,numcols], as.numeric)
-  
-#  factcols <- c('make','fuel.type','aspiration','num.of.doors','drive.wheels','engine.location','engine.type','num.of.cylinders','fuel.system','body.style')
-#  gtd.data[, factcols]<-lapply(auto.data[,factcols], as.factor)
-  
-#  gtd.data[complete.cases(auto.data),]
-}
-
-### Main Code
-
-## Read data in
-# Set base working directory
-wd <- "C:/Users/Dave/Google Drive/UW Data Science/2017 Q1 - MDA/Term Project"
-setwd(wd)
-
-# Refugee flows
-ref.data <-read.datafile("UNHCR_refugee_flows.csv",skip=5)
-
-# Terrorist Nationality
-tnat.data <-read.datafile("AN_Terrorist_Nationality.csv")
-
-# GTD database
-setwd(paste(wd,"/GTD_0616dist",sep=""))
-gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
-
-#clean up database
-
-# View dataset and summary statistics
-str(ref.data)
-str(tnat.data)
-str(gtd.data)
-
-## Visualize basic data
-
-factcols <- c('country_txt','region_txt')
-gtd.data[, factcols]<-lapply(gtd.data[,factcols], as.factor)
-
-hist(gtd.data$iyear)
-
-hist(gtd.data$country_txt)
-
-
-## Assignment 6 
-
-
-beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=0.3))
-beta.par ## The parameters of my Beta distribution
-
-## Functions
 beta.plot <- function(dist,success,failure){
   dist + c(success, failure)
   options(repr.plot.width=6, repr.plot.height=5)
@@ -123,6 +69,72 @@ drivers.hund <- function(dist,n,title){
   
   list("HDI" = discint(cbind(s, pred.probs), 0.90),"CDF" = dist.cdf,"PDF"=pred.probs)
 }
+
+# File read function
+read.datafile = function(file = 'Automobile price data _Raw_.csv',skip=0){
+  datafile.data <- read.csv(file, header=TRUE, stringsAsFactors=FALSE,skip=skip)
+  
+#  numcols <- c('bore','stroke','horsepower','price','peak.rpm')
+#  gtd.data[, numcols]<-lapply(auto.data[,numcols], as.numeric)
+  
+#  factcols <- c('make','fuel.type','aspiration','num.of.doors','drive.wheels','engine.location','engine.type','num.of.cylinders','fuel.system','body.style')
+#  gtd.data[, factcols]<-lapply(auto.data[,factcols], as.factor)
+  
+#  gtd.data[complete.cases(auto.data),]
+}
+
+### Main Code
+
+## Read data in
+# Set base working directory
+wd <- "C:/Users/Dave/Google Drive/UW Data Science/2017 Q1 - MDA/Term Project"
+setwd(wd)
+
+# Refugee flows
+ref.data <-read.datafile("UNHCR_refugee_flows.csv",skip=5)
+
+# Terrorist Nationality
+tnat.data <-read.datafile("AN_Terrorist_Nationality.csv")
+
+# GTD database
+setwd(paste(wd,"/GTD_0616dist",sep=""))
+gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
+
+#clean up database
+
+# View dataset and summary statistics
+str(ref.data)
+str(tnat.data)
+str(gtd.data)
+
+# Subset most relevant data
+gtd.sub <- select(gtd.data,iyear,country,country_txt,attacktype1,success,nkill,nkillus,nwound,nwoundus,INT_IDEO)
+
+## Visualize basic data
+
+factcols <- c('country_txt')
+gtd.sub[, factcols]<-lapply(gtd.data[,factcols], as.factor)
+
+hist(gtd.data$iyear,breaks=46)
+
+# Filter US attacks by international origin (exclude domestic)
+attacks.US <- filter(gtd.data,country_txt=="United States",INT_IDEO==1)
+hist(attacks.US$iyear, breaks=46,main = "Foreign Terrorist attacks in the US")
+
+# Look at US fatalities by year
+deaths.us <- count(attacks.US,nkillus)
+# Define beta distribution based on worldwide incidents from 1975 to 1990
+
+prior <- filter(gtd.sub,iyear<1991)
+count.success <- sum(prior$success)
+
+barplot(tnat.data$Murders,names=tnat.data$Country)
+
+### Assignment 6 
+
+
+beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=0.3))
+beta.par ## The parameters of my Beta distribution
 
 ## Main Code
 # Plot the Prior
