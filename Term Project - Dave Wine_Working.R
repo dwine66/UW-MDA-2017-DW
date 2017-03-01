@@ -96,44 +96,67 @@ ref.data <-read.datafile("UNHCR_refugee_flows.csv",skip=5)
 # Terrorist Nationality
 tnat.data <-read.datafile("AN_Terrorist_Nationality.csv")
 
+# US Crime database
+crime.data <- read.datafile("2015 US Crime Rates.csv")
+
 # GTD database
 setwd(paste(wd,"/GTD_0616dist",sep=""))
 gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
 
 #clean up database
+#Add high-level 1993 data to gtd
 
-# View dataset and summary statistics
+colnames(gtd.data)[2] <-"Year"
+#factcols <- c('country_txt')
+#gtd.sub[, factcols]<-lapply(gtd.data[,factcols], as.factor)
+
+
+
 str(ref.data)
 str(tnat.data)
+str(crime.data)
 str(gtd.data)
 
 # Subset most relevant data
-gtd.sub <- select(gtd.data,iyear,country,country_txt,attacktype1,success,nkill,nkillus,nwound,nwoundus,INT_IDEO)
+gtd.sub <- select(gtd.data,Year,country,country_txt,attacktype1,success,nkill,nkillus,nwound,nwoundus,INT_IDEO)
 
+crime.sub <- select(filter(crime.data,Year>1969),Year,Murder) 
+crime.prior <- filter(crime.sub,Year<1991)
 ## Visualize basic data
 
-factcols <- c('country_txt')
-gtd.sub[, factcols]<-lapply(gtd.data[,factcols], as.factor)
 
-hist(gtd.data$iyear,breaks=46)
+hist(gtd.data$Year,breaks=46)
 
-# Filter US attacks by international origin (exclude domestic)
+# Filter US attacks by international origin (exclude domestic) and if it caused a fatality
 attacks.US <- filter(gtd.data,country_txt=="United States",INT_IDEO==1)
-hist(attacks.US$iyear, breaks=46,main = "Foreign Terrorist attacks in the US")
+hist(attacks.US$Year, breaks=46,main = "Foreign Terrorist attacks in the US")
 
-# Look at US fatalities by year
-deaths.us <- count(attacks.US,nkillus)
-# Define beta distribution based on worldwide incidents from 1975 to 1990
+tdeaths.US <- select(attacks.US,Year,nkillus)
+tdeaths.US <- filter(tdeaths.US,nkillus>=0)
+tdeaths.US <- tdeaths.US %>% group_by(Year) %>% summarise(tfatal=sum(nkillus))
+tdeaths.prior <- filter(tdeaths.US,Year<1991)
+tdeaths.a <- filter(tdeaths.US,Year>=1991,Year<=1996)
+tdeaths.b <- filter(tdeaths.US,Year>=1997,Year<=2001)
+tdeaths.c <- filter(tdeaths.US,Year>=2002,Year<=2006)
+tdeaths.d <- filter(tdeaths.US,Year>=2007,Year<=2011)
+tdeaths.e <- filter(tdeaths.US,Year>=2012,Year<=2015)
 
-prior <- filter(gtd.sub,iyear<1991)
-count.success <- sum(prior$success)
+# Define beta prior based on US incidents from 1975 to 1990
+
+#Event-based
+tevents.US <- select(filter(attacks.US,Year<1991,success==1),Year,success)
+tevents.US <- tevents.US %>% group_by(Year) %>% summarise(count=sum(success))
+priors <- left_join(tdeaths.prior,crime.prior,by = "Year")
+events.prior <-left_join(tevents.US,crime.prior,by = "Year")
+
 
 barplot(tnat.data$Murders,names=tnat.data$Country)
 
 ### Assignment 6 
 
-
-beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=0.3))
+# Was there a death in the US due to terrorism that year (a=no, b=yes)
+#beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=.3))
+beta.par <-c(15,4)
 beta.par ## The parameters of my Beta distribution
 
 ## Main Code
@@ -141,23 +164,25 @@ beta.par ## The parameters of my Beta distribution
 beta.plot(beta.par,0,0)
 
 # Plot the successive cumulative evidence
-beta.plot(beta.par,2,18) # results for first 20
-beta.plot(beta.par,6,34) # results after 40
-beta.plot(beta.par,7,53) # results after 60
+beta.plot(beta.par,5,0) # results for first 20
+beta.plot(beta.par,9,1) # results after 40
+beta.plot(beta.par,14,0) # results after 60
+beta.plot(beta.par,19,0) # results after 60
+beta.plot(beta.par,24,0) # results after 60
 
 # Simulate from the posterior and 
 ## compute confidence intervals
 
 # The posterior is just the number of successes relative to the total number of trials
-beta.post.par <- beta.par + c(2+4+1,18+16+19)
+beta.post.par <- beta.par + c(25,1)
 
-post.sim.local <- post.sim(beta.post.par, "Local Drivers")
+post.sim.local <- post.sim(beta.post.par, "Post-1990")
 post.sim.local
-post.sim.natl <-post.sim(beta.par,"National Average")
+post.sim.natl <-post.sim(beta.par,"Pre-1990")
 post.sim.natl
 
 # 7 successes out of 60 observations
-predplot(beta.post.par, 60, 7)
+predplot(beta.post.par, 25, 2)
 
 # Now look at 100 drivers, both locally and nationally
 local.pred <- drivers.hund(beta.post.par,100,'Local')
