@@ -1,0 +1,11 @@
+> Perform time series analysis on the data for one of Milk Production, or Ice Cream Production (your choice), in the CADairyProduction.csv file to answer the following questions
+   – Is this time series stationary?
+   – Is there a significant seasonal component?
+   – For the residual from the STL decomposition of the time series what is the order of the ARMA(p,q) process that best fits?
+   – Forecast production for 12 months. Report both numeric values and plot the confidence intervals. Are the confidence intervals reasonably small compared to the forecast means? How do the confidence intervals behave as time moves to the future?
+You should submit:
+> One R-script
+    – Follow good coding practice; minimize cut and paste
+    – Include comments
+Note, if you have done your work in rmarkdown or a notebook and your code is inline with your text you do not need to submit a separate R file. 
+> A clear report, stating your conclusions up-front and supporting the conclusions with evidence in the form of charts and numeric tables. 
