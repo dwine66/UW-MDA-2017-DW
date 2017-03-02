@@ -21,6 +21,7 @@ require(car)
 require(plyr)
 require(dplyr)
 require(LearnBayes)
+require(rworldmap)
 
 ### Functions
 
@@ -105,12 +106,12 @@ gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
 
 #clean up database
 #Add high-level 1993 data to gtd
+gtd.1993 <- read.datafile("gtd1993_0616dist.csv")
+gtd.data <-rbind.fill(gtd.data,gtd.1993)
 
 colnames(gtd.data)[2] <-"Year"
 #factcols <- c('country_txt')
 #gtd.sub[, factcols]<-lapply(gtd.data[,factcols], as.factor)
-
-
 
 str(ref.data)
 str(tnat.data)
@@ -122,13 +123,24 @@ gtd.sub <- select(gtd.data,Year,country,country_txt,attacktype1,success,nkill,nk
 
 crime.sub <- select(filter(crime.data,Year>1969),Year,Murder) 
 crime.prior <- filter(crime.sub,Year<1991)
+
 ## Visualize basic data
+# Domestic vs International
+# Map
 
+newmap <- getMap(resolution = "low")
+plot(newmap)
+points(gtd.data$longitude, gtd.data$latitude,col='red',cex=1)
 
+# by year
 hist(gtd.data$Year,breaks=46)
+
+
+## Bayesian Analysis
 
 # Filter US attacks by international origin (exclude domestic) and if it caused a fatality
 attacks.US <- filter(gtd.data,country_txt=="United States",INT_IDEO==1)
+attacks.US.1993 <- filter(gtd.data,country_txt=="United States",Year==1993)
 hist(attacks.US$Year, breaks=46,main = "Foreign Terrorist attacks in the US")
 
 tdeaths.US <- select(attacks.US,Year,nkillus)
