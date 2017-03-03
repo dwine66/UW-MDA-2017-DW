@@ -49,7 +49,7 @@ post.sim <- function (post, title){
   
   list(quants,paste("Mean: ",mean(post.sample)),paste("Median: ",median(post.sample)))
 }
-
+# Predicted distribution of n more trials
 drivers.hund <- function(dist,n,title){
   s <- 0:n
   pred.probs <- pbetap(dist, n, s)
@@ -88,7 +88,7 @@ read.datafile = function(file = 'Automobile price data _Raw_.csv',skip=0){
 
 ## Read data in
 # Set base working directory
-wd <- "C:/Users/dwine/Google Drive/UW Data Science/2017 Q1 - MDA/Term Project"
+wd <- "C:/Users/Dave/Google Drive/UW Data Science/2017 Q1 - MDA/Term Project"
 setwd(wd)
 
 # Refugee flows
@@ -106,10 +106,11 @@ gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
 
 #clean up database
 #Add high-level 1993 data to gtd
-gtd.1993 <- read.datafile("gtd1993_0616dist.csv")
+gtd.1993 <- read.datafile("gtd1993_0616dist_DW.csv")
 gtd.data <-rbind.fill(gtd.data,gtd.1993)
 
 colnames(gtd.data)[2] <-"Year"
+
 #factcols <- c('country_txt')
 #gtd.sub[, factcols]<-lapply(gtd.data[,factcols], as.factor)
 
@@ -119,33 +120,45 @@ str(crime.data)
 str(gtd.data)
 
 # Subset most relevant data
-gtd.sub <- select(gtd.data,Year,country,country_txt,attacktype1,success,nkill,nkillus,nwound,nwoundus,INT_IDEO)
+gtd.sub <- select(gtd.data,Year,country,country_txt,targtype1 ,targtype1_txt,success,nkill,nkillus,nwound,nwoundus,INT_IDEO)
 
-crime.sub <- select(filter(crime.data,Year>1969),Year,Murder) 
-crime.prior <- filter(crime.sub,Year<1991)
+# US murder data
+murders.sub <- select(filter(crime.data,Year>1969),Year,Murder) 
+murders.prior <- filter(murders.sub,Year<1991)
 
 ## Visualize basic data
+attacks.US<-filter(gtd.sub,country_txt=="United States")
 # Domestic vs International
-# Map
+attacks.US.dom <-filter(gtd.sub,country_txt=="United States",INT_IDEO==0)
+attacks.US.int <- filter(gtd.sub,country_txt=="United States",INT_IDEO==1)
+attacks.US.unk <- filter(gtd.sub,country_txt=="United States",INT_IDEO==-9)
 
+
+types.US <- attacks.US %>% count(targtype1_txt) 
+types.US <- types.US[order(types.US$n),]
+
+hist(attacks.US.int$Year, breaks=46,main = "Foreign Terrorist attacks in the US")
+hist(attacks.US.dom$Year, breaks=46,main = "Domestic Terrorist attacks in the US")
+
+barplot(types.US$n,names.arg=types.US$targtype1_txt,horiz=TRUE)
+
+# Map
 newmap <- getMap(resolution = "low")
 plot(newmap)
 points(gtd.data$longitude, gtd.data$latitude,col='red',pch=".")
 
 # by year
-hist(gtd.data$Year,breaks=46)
-
+hist(gtd.data$Year,breaks=46,main="worldwide attacks by year")
 
 ## Bayesian Analysis
 
 # Filter US attacks by international origin (exclude domestic) and if it caused a fatality
-attacks.US <- filter(gtd.data,country_txt=="United States",INT_IDEO==1)
-attacks.US.1993 <- filter(gtd.data,country_txt=="United States",Year==1993)
-hist(attacks.US$Year, breaks=46,main = "Foreign Terrorist attacks in the US")
 
-tdeaths.US <- select(attacks.US,Year,nkillus)
+
+
+tdeaths.US <- select(attacks.US.int,Year,nkillus)
 tdeaths.US <- filter(tdeaths.US,nkillus>=0)
-tdeaths.US <- tdeaths.US %>% group_by(Year) %>% summarise(tfatal=sum(nkillus))
+tdeaths.US <- tdeaths.US %>% group_by(Year) %>% dplyr::summarise(tfatal=sum(nkillus))
 tdeaths.prior <- filter(tdeaths.US,Year<1991)
 tdeaths.a <- filter(tdeaths.US,Year>=1991,Year<=1996)
 tdeaths.b <- filter(tdeaths.US,Year>=1997,Year<=2001)
@@ -157,26 +170,26 @@ tdeaths.e <- filter(tdeaths.US,Year>=2012,Year<=2015)
 
 #Event-based
 tevents.US <- select(filter(attacks.US,Year<1991,success==1),Year,success)
-tevents.US <- tevents.US %>% group_by(Year) %>% summarise(count=sum(success))
+tevents.US <- tevents.US %>% group_by(Year) %>% dplyr::summarise(count=sum(success))
 priors <- left_join(tdeaths.prior,crime.prior,by = "Year")
 events.prior <-left_join(tevents.US,crime.prior,by = "Year")
 
 
 barplot(tnat.data$Murders,names=tnat.data$Country)
 
-### Assignment 6 
+ 
 
 # Was there a death in the US due to terrorism that year (a=no, b=yes)
 #beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=.3))
 beta.par <-c(15,4)
 beta.par ## The parameters of my Beta distribution
 
-## Main Code
+
 # Plot the Prior
 beta.plot(beta.par,0,0)
 
 # Plot the successive cumulative evidence
-beta.plot(beta.par,5,0) # results for first 20
+beta.plot(beta.par,5,1) # results for first 20
 beta.plot(beta.par,9,1) # results after 40
 beta.plot(beta.par,14,0) # results after 60
 beta.plot(beta.par,19,0) # results after 60
@@ -186,7 +199,7 @@ beta.plot(beta.par,24,0) # results after 60
 ## compute confidence intervals
 
 # The posterior is just the number of successes relative to the total number of trials
-beta.post.par <- beta.par + c(25,1)
+beta.post.par <- beta.par + c(25,2)
 
 post.sim.local <- post.sim(beta.post.par, "Post-1990")
 post.sim.local

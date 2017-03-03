@@ -72,4 +72,29 @@ setwd(wd)
 # Dairy data
 dairy.data <-read.datafile("CADairyProduction.csv")
 
+### Main Code
 
+#Do ice cream
+
+#STL decomposition
+icrm <-ts(dairy.data[,4],start = dairy.data[1,1],freq=12)
+icrm.decomp <- ts.decomp(icrm, Mult=TRUE, is.df=FALSE,span =0.5)
+
+#Plot ACF
+options(repr.pmales.extlot.width=8, repr.plot.height=6)
+plot.acf(icrm.decomp[, 3], is.df = FALSE)
+
+# RIMA modeling
+icrm.arima = ts.model(icrm.decomp[, 3], col = 'ARIMA model for electricity', order = c(2,1,2))
+plot.acf(icrm.arima$resid[-1], is.df = FALSE)
+
+# Forecasting
+fit.icrm = auto.arima(icrm, max.p=3, max.q=3,
+                       max.P=2, max.Q=2, max.order=5, max.d=2, max.D=1,
+                       start.p=0, start.q=0, start.P=0, start.Q=0)
+summary(fit.icrm)
+
+## Make the forecast for the next year
+elect.forecast = forecast(fit.icrm, h=12)
+summary(elect.forecast)
+plot(elect.forecast)
