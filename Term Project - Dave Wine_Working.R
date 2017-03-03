@@ -88,7 +88,7 @@ read.datafile = function(file = 'Automobile price data _Raw_.csv',skip=0){
 
 ## Read data in
 # Set base working directory
-wd <- "C:/Users/Dave/Google Drive/UW Data Science/2017 Q1 - MDA/Term Project"
+wd <- "C:/Users/dwine/Google Drive/UW Data Science/2017 Q1 - MDA/Term Project"
 setwd(wd)
 
 # Refugee flows
@@ -130,7 +130,7 @@ crime.prior <- filter(crime.sub,Year<1991)
 
 newmap <- getMap(resolution = "low")
 plot(newmap)
-points(gtd.data$longitude, gtd.data$latitude,col='red',cex=1)
+points(gtd.data$longitude, gtd.data$latitude,col='red',pch=".")
 
 # by year
 hist(gtd.data$Year,breaks=46)
