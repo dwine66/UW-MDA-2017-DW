@@ -22,6 +22,7 @@ require(plyr)
 require(dplyr)
 require(LearnBayes)
 require(rworldmap)
+require(treemap)
 
 ### Functions
 
@@ -69,6 +70,23 @@ drivers.hund <- function(dist,n,title){
   plot(dist.cdf)
   
   list("HDI" = discint(cbind(s, pred.probs), 0.90),"CDF" = dist.cdf,"PDF"=pred.probs)
+}
+
+# Map
+mapplot <-function(dataset,title,xr=c(-180,180),yr=c(-90,90)){
+  par(mai=c(0,0,.25,0))
+  newmap <- getMap(resolution = "low")
+  plot(newmap,main=title,xlim=xr,ylim=yr)
+  points(dataset$longitude, dataset$latitude,col='red',pch=".")
+  
+  par(mfcol=c(3,2),mai=c(0,0,0.25,0))
+  
+  for(i in seq(1970,2016,10)){
+    tevents.ww <- filter(dataset,Year>=i,Year<=i+9)
+    newmap <- getMap(resolution = "low")
+    plot(newmap,main=paste("Terrorist Events: ",i,"'s"),xlim=xr,ylim=yr)
+    points(tevents.ww$longitude, tevents.ww$latitude,col='red',pch=".")
+  }
 }
 
 # File read function
@@ -120,8 +138,16 @@ str(crime.data)
 str(gtd.data)
 
 # Subset most relevant data
-gtd.sub <- select(gtd.data,Year,country,country_txt,targtype1 ,targtype1_txt,success,nkill,nkillus,nwound,nwoundus,INT_IDEO)
+gtd.sub <- select(gtd.data,Year,country,country_txt,longitude,latitude,attacktype1_txt,targtype1, +
+                    targtype1_txt,success,nkill,nkillus,nwound,nwoundus,INT_IDEO)
 
+gtd.sub.fatal <- filter(gtd.sub,nkill!="NA")
+gtd.sub.fatal <- filter(gtd.sub,nkill>0)
+gtd.sub.fatal$nkill <- log10(gtd.sub.fatal$nkill)
+
+gtd.data.scary <- filter(gtd.data,nkill>1000)
+gtd.data.low <- filter(gtd.data,nkill<1)
+gtd.data.low <- filter(gtd.data.low,nkill>0)
 # US murder data
 murders.sub <- select(filter(crime.data,Year>1969),Year,Murder) 
 murders.prior <- filter(murders.sub,Year<1991)
@@ -136,16 +162,48 @@ attacks.US.unk <- filter(gtd.sub,country_txt=="United States",INT_IDEO==-9)
 
 types.US <- attacks.US %>% count(targtype1_txt) 
 types.US <- types.US[order(types.US$n),]
+treemap(types.US,"targtype1_txt","n")
+
+atype.ww <- gtd.sub %>% count(attacktype1_txt) 
+atype.ww <- atype.ww[order(atype.ww$n),]
+
+treemap(atype.ww,"attacktype1_txt","n",type="index",palette="Blues",lowerbound.cex.labels = 0,title="Attack type (Worldwide)")
 
 hist(attacks.US.int$Year, breaks=46,main = "Foreign Terrorist attacks in the US")
 hist(attacks.US.dom$Year, breaks=46,main = "Domestic Terrorist attacks in the US")
 
+# Bar plot of attack types
+par(mfcol=c(1,1))
 barplot(types.US$n,names.arg=types.US$targtype1_txt,horiz=TRUE)
 
-# Map
+
+ggplot(attacks.US, aes(x=reorder(targtype1_txt,targtype1_txt,function(x) -length(x)))) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle('Bar chart of Terrorist Attack Type in US')
+
+ggplot(gtd.data, aes(x=reorder(targtype1_txt,targtype1_txt,function(x) -length(x)))) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle('Bar chart of Terrorist Attack Type ww')
+
+ggplot(gtd.sub.fatal, aes(x = factor(attacktype1_txt), y = nkill)) + geom_boxplot() +
+theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle('Boxplot of Terrorism Fatalities')
+
+
+# Map stuff
+
+mapplot(gtd.data,"Terrorist Events - Worldwide")
+
+par(mai=c(0,0,.25,0))
 newmap <- getMap(resolution = "low")
-plot(newmap)
-points(gtd.data$longitude, gtd.data$latitude,col='red',pch=".")
+plot(newmap,main="Terrorist Attacks in the US",xlim=c(-150,-75),ylim=c(15,65))
+points(attacks.US.int$longitude, attacks.US.int$latitude,col='red',pch=1)
+points(attacks.US.dom$longitude, attacks.US.dom$latitude,col='blue',pch=1)
+points(attacks.US.unk$longitude, attacks.US.unk$latitude,col='green',pch=1)
+
+mapplot(attacks.US,"Terrorist Events in the US",c(-150,-75),c(15,65))
 
 # by year
 hist(gtd.data$Year,breaks=46,main="worldwide attacks by year")
@@ -153,8 +211,6 @@ hist(gtd.data$Year,breaks=46,main="worldwide attacks by year")
 ## Bayesian Analysis
 
 # Filter US attacks by international origin (exclude domestic) and if it caused a fatality
-
-
 
 tdeaths.US <- select(attacks.US.int,Year,nkillus)
 tdeaths.US <- filter(tdeaths.US,nkillus>=0)
@@ -171,13 +227,10 @@ tdeaths.e <- filter(tdeaths.US,Year>=2012,Year<=2015)
 #Event-based
 tevents.US <- select(filter(attacks.US,Year<1991,success==1),Year,success)
 tevents.US <- tevents.US %>% group_by(Year) %>% dplyr::summarise(count=sum(success))
-priors <- left_join(tdeaths.prior,crime.prior,by = "Year")
-events.prior <-left_join(tevents.US,crime.prior,by = "Year")
-
+priors <- left_join(tdeaths.prior,murders.prior,by = "Year")
+events.prior <-left_join(tevents.US,murders.prior,by = "Year")
 
 barplot(tnat.data$Murders,names=tnat.data$Country)
-
- 
 
 # Was there a death in the US due to terrorism that year (a=no, b=yes)
 #beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=.3))
@@ -189,6 +242,7 @@ beta.par ## The parameters of my Beta distribution
 beta.plot(beta.par,0,0)
 
 # Plot the successive cumulative evidence
+par(mfcol=c(2,3))
 beta.plot(beta.par,5,1) # results for first 20
 beta.plot(beta.par,9,1) # results after 40
 beta.plot(beta.par,14,0) # results after 60
