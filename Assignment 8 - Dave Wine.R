@@ -84,8 +84,8 @@ icrm.decomp <- ts.decomp(icrm, Mult=TRUE, is.df=FALSE,span =0.5)
 options(repr.pmales.extlot.width=8, repr.plot.height=6)
 plot.acf(icrm.decomp[, 3], is.df = FALSE)
 
-# RIMA modeling
-icrm.arima = ts.model(icrm.decomp[, 3], col = 'ARIMA model for electricity', order = c(2,1,2))
+# ARIMA modeling
+icrm.arima = ts.model(icrm.decomp[, 3], col = 'ARIMA model for ice cream', order = c(2,1,2))
 plot.acf(icrm.arima$resid[-1], is.df = FALSE)
 
 # Forecasting

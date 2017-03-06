@@ -23,6 +23,7 @@ require(dplyr)
 require(LearnBayes)
 require(rworldmap)
 require(treemap)
+require(repr)
 
 ### Functions
 
@@ -55,7 +56,7 @@ drivers.hund <- function(dist,n,title){
   s <- 0:n
   pred.probs <- pbetap(dist, n, s)
   plot(s, pred.probs, type="h", 
-       main = paste('Probability distribution of the number of',title,'drivers texting at the intersection, ', as.character(n), 'trials'),
+       main = paste('Probability distribution of the number of','title',as.character(n), 'trials'),
        xlab = 'Successes')
   discint(cbind(s, pred.probs), 0.90)
   
@@ -118,16 +119,31 @@ tnat.data <-read.datafile("AN_Terrorist_Nationality.csv")
 # US Crime database
 crime.data <- read.datafile("2015 US Crime Rates.csv")
 
+# Foreign Terrorist Visa List
+visa.data <- read.datafile("2016 Terrorism and Risk_visalist.txt")
+
 # GTD database
 setwd(paste(wd,"/GTD_0616dist",sep=""))
 gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
 
-#clean up database
-#Add high-level 1993 data to gtd
+##  Clean up database
+# Add high-level 1993 data to gtd
 gtd.1993 <- read.datafile("gtd1993_0616dist_DW.csv")
 gtd.data <-rbind.fill(gtd.data,gtd.1993)
 
+# Rename columns as needed
 colnames(gtd.data)[2] <-"Year"
+colnames(ref.data)[1] <-"Destination"
+colnames(ref.data)[2] <-"Origin"
+colnames(tnat.data)[1] <-"Origin"
+
+# Turn NA's to zero where appropriate
+#ref.data <- gsub("*","NA",ref.data)
+ref.data[is.na(ref.data)] <-0
+
+
+# Add summary data where appropriate 
+ref.data$Total <- rowSums(ref.data[,4:15]) #through 2012
 
 #factcols <- c('country_txt')
 #gtd.sub[, factcols]<-lapply(gtd.data[,factcols], as.factor)
@@ -160,11 +176,11 @@ attacks.US.int <- filter(gtd.sub,country_txt=="United States",INT_IDEO==1)
 attacks.US.unk <- filter(gtd.sub,country_txt=="United States",INT_IDEO==-9)
 
 
-types.US <- attacks.US %>% count(targtype1_txt) 
+types.US <- attacks.US %>% dplyr::count(targtype1_txt) 
 types.US <- types.US[order(types.US$n),]
 treemap(types.US,"targtype1_txt","n")
 
-atype.ww <- gtd.sub %>% count(attacktype1_txt) 
+atype.ww <- gtd.sub %>% dplyr::count(attacktype1_txt) 
 atype.ww <- atype.ww[order(atype.ww$n),]
 
 treemap(atype.ww,"attacktype1_txt","n",type="index",palette="Blues",lowerbound.cex.labels = 0,title="Attack type (Worldwide)")
@@ -288,3 +304,79 @@ plot(natl.pred$CDF,type='l',col ="blue",xaxt="n",yaxt="n",xlab="",ylab="")
 title("Comparison of Local and National Drivers",xlab="Number of Drivers",ylab="Cumulative Probability")
 legend("bottomright",lwd=c(2,2),col=c("red","blue"),legend=c("Local","National"))
 
+## Refugee Data
+ref.us <-filter(ref.data,Destination=="United States",Population.type!="Returned refugees")
+ref.us.ter <-inner_join(ref.us,tnat.data,by="Origin")
+ref.us.ter <- filter(ref.us.ter,Terrorists!=0)
+#asy.us.ter <-filter(ref.us.ter,Population.type=="Asylum seekers")
+#ref.us.ter <-filter(ref.us.ter,Population.type=="Refugees")
+
+ggplot(ref.us.ter,aes(log10(Total), Terrorists)) +
+  geom_point(aes(color=factor(Population.type))) +
+  coord_fixed(1/5)
+
+ggplot(ref.us.ter,aes(log10(Total), Murders)) +
+  geom_point(aes(color=factor(Population.type))) 
+
+ter.prob <- mutate(ref.us.ter,Prob_Ter=Terrorists/Total)
+
+# Was there a terrorist in the refugee population (a=no, b=yes)
+#beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=.3))
+ref.OK.Total=sum(ref.us.ter$Total)-sum(ref.us.ter$Terrorists)
+ref.ter.Total=sum(ref.us.ter$Terrorists)
+beta.ter=c(ref.OK.Total,ref.ter.Total)
+beta.plot(beta.ter,0,0)
+
+#natl.pred <- drivers.hund(beta.par,100000,'Known Countries')
+post.sim.ter <-post.sim(beta.ter,"Known Countries, 2000-2012")
+post.sim.ter
+
+options(repr.plot.width = 8,repr.plot.height = 4)
+
+ref.us.tot=colSums(ref.us[4:16])
+ref.us.prior=sum(ref.us.tot[4:9])
+ref.us.post=sum(ref.us.tot[10:13])
+
+barplot(ref.us.tot)
+
+attacks.US.int.ref <- filter(attacks.US.int,Year>1999,Year<2013)
+at.US.tot <- attacks.US.int.ref %>% group_by(Year) %>% dplyr::count(Year)
+at.US.prior <- filter(at.US.tot,Year<2006)
+at.US.post <- filter(at.US.tot,Year>2005)
+
+US.comb.prior <- cbind(at.US.prior,ref.us.prior[1:6])
+
+# Was there a terrorist in the refugee population (a=no, b=yes)
+#beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=.3))
+beta.ter <- c(80,4723932-80)
+beta.plot(beta.ter,0,0)
+
+beta.post.ter <- beta.ter+c(21,ref.us.post)
+
+post.sim.local <- post.sim(beta.post.ter, "Post-2005")
+post.sim.local
+post.sim.natl <-post.sim(beta.ter,"Pre-2005")
+post.sim.natl
+
+predplot(beta.post.ter, 21, ref.us.post)
+
+# Now look at 100 drivers, both locally and nationally
+local.pred <- drivers.hund(beta.post.ter,10000,'Local')
+natl.pred <- drivers.hund(beta.ter,10000,'National')
+
+# Compare the CDFs
+PDF <- data.frame(local.pred$PDF,natl.pred$PDF)
+CDF <- data.frame(local.pred$CDF,natl.pred$CDF)
+# Plot PDFs
+plot(local.pred$PDF,type="l",col="red",xaxt="n",yaxt="n",xlab="",ylab="",ylim=c(0,.2))
+par(new=TRUE)
+plot(natl.pred$PDF,type='l',col ="blue",xlab="",ylab="")
+title("Comparison of Local and National Drivers",xlab="Number of Drivers",ylab="Probability")
+legend("topright",lwd=c(2,2),col=c("red","blue"),legend=c("Local","National"))
+
+#Plot CDFs
+plot(local.pred$CDF,type="l",col="red",xlab="",ylab="")
+par(new=TRUE)
+plot(natl.pred$CDF,type='l',col ="blue",xaxt="n",yaxt="n",xlab="",ylab="")
+title("Comparison of Local and National Drivers",xlab="Number of Drivers",ylab="Cumulative Probability")
+legend("bottomright",lwd=c(2,2),col=c("red","blue"),legend=c("Local","National"))
