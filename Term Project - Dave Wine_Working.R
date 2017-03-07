@@ -2,32 +2,21 @@
 ## Dave Wine 8430191
 ## Term Project - Refugees, Terrorism, and Airstrikes
 
-# Perspectives
-# 1. You are a US customs official with a long line of refugees.  You need to decide whether each is a potential
-# based on their sex, country of origin, and religion.
-# 2. You are a terrorist mastermind trying to recruit people who will not arouse US customs supervision.
-# 3. You are the President of the United States trying to choose an entry policy.
-# 4. You are a citizen of the United States that is voting for a President that is claiming extreme danger
-# from foreign terrorists posing as refugees.
-# 5. You are a citizen of one of those countries, which is currently subject to airstrikes by the United
-# States.  How safe are you compared to the US citizen?
-# 6. You are a policy wonk in the US government, trying to decide whether to add additional screening to 
-# a refugee admission process.
-
 ### Import packages
-require(ggplot2)
-require(gridExtra)
+
 require(car)
 require(plyr)
 require(dplyr)
 require(LearnBayes)
+
+# For plotting
+require(ggplot2)
 require(gridExtra)
 require(treemap)
 require(repr)
 
 # For mapping
 require(rworldmap)
-
 
 ### Functions
 # Bayesian Beta Plot
@@ -90,13 +79,13 @@ dist.plot <- function(data1,data2,Name,dname1,dname2){
 
 # Treemap Plot
 tree.plot <- function(dataset,var,size,name){
-  par(mai=c(0,0,.25,0))
+  par(mfcol=c(1,1),mai=c(0,0,.25,0))
   treemap(dataset,var,size,type="index",palette="Reds",lowerbound.cex.labels = 0 ,title=name,aspRatio=1.25)
 }
 
-# World Map Plotting
+# Incident Plotting
 map.plot <-function(dataset,title,xr=c(-180,180),yr=c(-90,90)){
-  par(mai=c(0,0,.25,0))
+  par(mfcol=c(1,1),mai=c(0,0,.25,0))
   newmap <- getMap(resolution = "low")
   plot(newmap,main=title,xlim=xr,ylim=yr)
   points(dataset$longitude, dataset$latitude,col='red',pch=".")
@@ -109,25 +98,29 @@ map.plot <-function(dataset,title,xr=c(-180,180),yr=c(-90,90)){
     plot(newmap,main=paste("Terrorist Events: ",i,"'s"),xlim=xr,ylim=yr)
     points(tevents.ww$longitude, tevents.ww$latitude,col='red',pch=".")
   }
+  par(mfcol=c(1,1),mai=c(0,0,0.25,0))
 }
 
-country.plot <- function(dataset,njoin,nplot){
+# Plotting by country
+country.plot <- function(dataset,njoin,nplot,maxval,pname){
+  par(mfcol=c(1,1),mai=c(0,0,0.25,0))
   sPDF <- joinCountryData2Map(dataset, joinCode = "NAME", nameJoinColumn = njoin,verbose=TRUE)
-  mapCountryData( sPDF, nameColumnToPlot=nplot,catMethod = seq(0,20000,by =2000),colourPalette = "diverging")
+  mapCountryData( sPDF, nameColumnToPlot=nplot,catMethod = seq(0,maxval,by = maxval/10),
+                  colourPalette = "diverging", mapTitle = pname)
 }
- 
-country.multi <-function(dataset){
+
+country.multi <-function(dataset,njoin,nplot,maxval,pname){
 
   par(mfcol=c(3,2),mai=c(0,0,0.25,0))
   
   for(i in seq(1970,2016,10)){
-    tevents.ww <- filter(dataset,Year>=i,Year<=i+9)
-    newmap <- getMap(resolution = "low")
-    plot(newmap,main=paste("Terrorist Events: ",i,"'s"),xlim=xr,ylim=yr)
-    points(tevents.ww$longitude, tevents.ww$latitude,col='red',pch=".")
+    dfil <- filter(dataset,Year>=i,Year<=i+9) %>% group_by(njoin) %>% summarise(sum(nplot))
+    dfil.plot <- dfil[,3]
+    sPDF <- joinCountryData2Map(dfil, joinCode = "NAME", nameJoinColumn = njoin,verbose=TRUE)
+    mapCountryData(sPDF, nameColumnToPlot=dfil.plot,catMethod = seq(0,maxval,by = maxval/10),
+                   colourPalette = "diverging", mapTitle = pname)
   }
 }
-
 
 # File read function
 read.datafile = function(file = 'Automobile price data _Raw_.csv',skip=0){
@@ -265,9 +258,25 @@ tree.plot(atype.ww,"attacktype1_txt","n","Attack Types (WW)")
 
 # Map stuff
 gtd.Country <- gtd.data %>% dplyr::count(country_txt)
-country.plot(gtd.Country,"country_txt","n")
+country.plot(gtd.Country,"country_txt","n",20000, "Terror Attacks by Country, 1970-2015")
 
-map.plot(gtd.data,"Terrorist Events - Worldwide")
+tnat.Country <- tnat.data %>% dplyr::count(Origin)
+country.plot(tnat.Country,"Origin","n",20, "Identified Foreign Terrorist Country of Origin, 1975-2015")
+
+#event grid plot
+gtd.CountryYear <- gtd.sub %>% group_by(Year) %>% dplyr::count(country_txt)
+#country.multi(gtd.CountryYear,"country_txt","n",1000, "Terror Attacks by Country")
+
+par(mfcol=c(3,2),mai=c(0,0,0.25,0))
+
+for(i in seq(1970,2016,10)){
+  dfil <- filter(gtd.CountryYear,Year>=i,Year<=i+9) %>% group_by(country_txt) %>% summarise(sum(n))
+  sPDF <- joinCountryData2Map(dfil, joinCode = "NAME", nameJoinColumn = "country_txt",verbose=TRUE)
+  mapCountryData(sPDF, nameColumnToPlot="sum(n)",catMethod = seq(0,1000,by = 100),
+                  colourPalette = "diverging", mapTitle = "pname")
+}
+
+map.plot(gtd.data,"Worldwide Terrorist Events - 1970-2015")
 
 par(mai=c(0,0,.25,0))
 newmap <- getMap(resolution = "low")
@@ -423,7 +432,9 @@ dist.plot(post2005.pred$CDF,pre2005.pred$CDF,"CDF of Pre- and Post 2005","Post-2
 
 #Do a classic disease analysis based on these numbers
 
-# Test ggplot2 map functions
+
+
+### Function Test Area
 
 
 
