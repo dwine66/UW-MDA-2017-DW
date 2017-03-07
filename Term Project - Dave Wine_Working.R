@@ -21,9 +21,13 @@ require(car)
 require(plyr)
 require(dplyr)
 require(LearnBayes)
-require(rworldmap)
+require(gridExtra)
 require(treemap)
 require(repr)
+
+# For mapping
+require(rworldmap)
+
 
 ### Functions
 # Bayesian Beta Plot
@@ -84,6 +88,12 @@ dist.plot <- function(data1,data2,Name,dname1,dname2){
   legend("topright",lwd=c(2,2),col=c("red","blue"),legend=c(dname1,dname2))
 }
 
+# Treemap Plot
+tree.plot <- function(dataset,var,size,name){
+  par(mai=c(0,0,.25,0))
+  treemap(dataset,var,size,type="index",palette="Reds",lowerbound.cex.labels = 0 ,title=name,aspRatio=1.25)
+}
+
 # World Map Plotting
 map.plot <-function(dataset,title,xr=c(-180,180),yr=c(-90,90)){
   par(mai=c(0,0,.25,0))
@@ -100,6 +110,24 @@ map.plot <-function(dataset,title,xr=c(-180,180),yr=c(-90,90)){
     points(tevents.ww$longitude, tevents.ww$latitude,col='red',pch=".")
   }
 }
+
+country.plot <- function(dataset,njoin,nplot){
+  sPDF <- joinCountryData2Map(dataset, joinCode = "NAME", nameJoinColumn = njoin,verbose=TRUE)
+  mapCountryData( sPDF, nameColumnToPlot=nplot,catMethod = seq(0,20000,by =2000),colourPalette = "diverging")
+}
+ 
+country.multi <-function(dataset){
+
+  par(mfcol=c(3,2),mai=c(0,0,0.25,0))
+  
+  for(i in seq(1970,2016,10)){
+    tevents.ww <- filter(dataset,Year>=i,Year<=i+9)
+    newmap <- getMap(resolution = "low")
+    plot(newmap,main=paste("Terrorist Events: ",i,"'s"),xlim=xr,ylim=yr)
+    points(tevents.ww$longitude, tevents.ww$latitude,col='red',pch=".")
+  }
+}
+
 
 # File read function
 read.datafile = function(file = 'Automobile price data _Raw_.csv',skip=0){
@@ -128,7 +156,8 @@ ref.data <-read.datafile("UNHCR_refugee_flows.csv",skip=5)
 ref2.data <-read.datafile("20170305 UNHCR Refugee Data_US.csv",skip=4)
 
 # Terrorist Nationality
-tnat.data <-read.datafile("AN_Terrorist_Nationality.csv")
+tnat.data <-read.datafile("20170306 Nowrasteh Terrorist Country data.csv")
+tnat2.data <-read.datafile("AN_Terrorist_Nationality.csv")
 
 # US Crime database
 crime.data <- read.datafile("2015 US Crime Rates.csv")
@@ -147,10 +176,15 @@ gtd.data <-rbind.fill(gtd.data,gtd.1993)
 
 # Rename columns as needed
 colnames(gtd.data)[2] <-"Year"
+
 colnames(ref.data)[1] <-"Destination"
 colnames(ref.data)[2] <-"Origin"
+
 colnames(ref2.data)[2] <-"Destination"
-colnames(tnat.data)[1] <-"Origin"
+
+colnames(tnat.data)[5] <-"Origin"
+colnames(tnat.data)[4] <-"Visa.Type"
+colnames(tnat.data)[3] <-"Fatalities"
 
 # Turn NA's to zero where appropriate
 #ref.data <- gsub("*","NA",ref.data)
@@ -167,11 +201,12 @@ str(tnat.data)
 str(crime.data)
 str(gtd.data)
 
-# Subset most relevant data
+## Subset most relevant data
 # INT_IDEO is the closest thing to country data in the GTD.
 gtd.sub <- select(gtd.data,Year,country,country_txt,longitude,latitude,attacktype1_txt,targtype1, +
                     targtype1_txt,success,nkill,nkillus,nwound,nwoundus,INT_IDEO)
 
+# Attacks that caused at least one death
 gtd.sub.fatal <- filter(gtd.sub,nkill!="NA")
 gtd.sub.fatal <- filter(gtd.sub,nkill>0)
 gtd.sub.fatal$nkill <- log10(gtd.sub.fatal$nkill)
@@ -180,14 +215,13 @@ gtd.sub.fatal$nkill <- log10(gtd.sub.fatal$nkill)
 gtd.data.scary <- filter(gtd.data,nkill>1000)
 
 # Fractional fatalities (more terrorists than victims)
-gtd.data.low <- filter(gtd.data,nkill<1)
-gtd.data.low <- filter(gtd.data.low,nkill>0)
+gtd.data.low <- filter(gtd.data,nkill<1,nkill>0)
 
 # US murder data
 murders.sub <- select(filter(crime.data,Year>1969),Year,Murder) 
 murders.prior <- filter(murders.sub,Year<1991)
 
-## Visualize basic data
+## Define US data
 attacks.US<-filter(gtd.sub,country_txt=="United States")
 
 # Domestic vs International
@@ -195,10 +229,16 @@ attacks.US.dom <- filter(gtd.sub,country_txt=="United States",INT_IDEO==0)
 attacks.US.int <- filter(gtd.sub,country_txt=="United States",INT_IDEO==1)
 attacks.US.unk <- filter(gtd.sub,country_txt=="United States",INT_IDEO==-9)
 
-# Plot treemap of primary targets
+# Attack types in the US
 types.US <- attacks.US %>% dplyr::count(targtype1_txt) 
 types.US <- types.US[order(types.US$n),]
-treemap(types.US,"targtype1_txt","n",type="index",palette="Reds",lowerbound.cex.labels = 0 ,title="Target type (Worldwide)")
+
+types.ww <- gtd.sub %>% dplyr::count(targtype1_txt) 
+types.ww <- types.ww[order(types.ww$n),]
+
+## Plot treemap of primary targets
+tree.plot(types.US,"targtype1_txt","n","Target Types (US)")
+tree.plot(types.ww,"targtype1_txt","n","Target Types (WW)")
 
 hist(attacks.US.int$Year, breaks=46,main = "Foreign Terrorist attacks in the US")
 hist(attacks.US.dom$Year, breaks=46,main = "Domestic Terrorist attacks in the US")
@@ -221,18 +261,21 @@ ggplot(gtd.sub.fatal, aes(x = factor(attacktype1_txt), y = nkill)) + geom_boxplo
 # Plot treemap of attack methodologies worldwide
 atype.ww <- gtd.sub %>% dplyr::count(attacktype1_txt) 
 atype.ww <- atype.ww[order(atype.ww$n),]
-treemap(atype.ww,"attacktype1_txt","n",type="index",palette="Blues",lowerbound.cex.labels = 0 ,title="Attack type (Worldwide)")
+tree.plot(atype.ww,"attacktype1_txt","n","Attack Types (WW)")
 
 # Map stuff
+gtd.Country <- gtd.data %>% dplyr::count(country_txt)
+country.plot(gtd.Country,"country_txt","n")
 
 map.plot(gtd.data,"Terrorist Events - Worldwide")
 
 par(mai=c(0,0,.25,0))
 newmap <- getMap(resolution = "low")
 plot(newmap,main="Terrorist Attacks in the US",xlim=c(-150,-75),ylim=c(15,65))
+points(attacks.US.unk$longitude, attacks.US.unk$latitude,col='grey',pch=.5)
 points(attacks.US.int$longitude, attacks.US.int$latitude,col='red',pch=1)
 points(attacks.US.dom$longitude, attacks.US.dom$latitude,col='blue',pch=1)
-points(attacks.US.unk$longitude, attacks.US.unk$latitude,col='green',pch=1)
+# add legend
 
 map.plot(attacks.US,"Terrorist Events in the US",c(-150,-75),c(15,65))
 
@@ -243,7 +286,7 @@ hist(gtd.data$Year,breaks=46,main="worldwide attacks by year")
 
 # Bayesian #1: Analysis of attacks before and after 1991
 
-# Filter US attacks by international origin (exclude domestic) and if it caused a fatality
+# Filter US attacks by international origin (exclude domestic & unknown) and if it caused a fatality
 tdeaths.US <- select(attacks.US.int,Year,nkillus)
 tdeaths.US <- filter(tdeaths.US,nkillus>=0)
 tdeaths.US <- tdeaths.US %>% group_by(Year) %>% dplyr::summarise(tfatal=sum(nkillus))
@@ -379,3 +422,12 @@ dist.plot(post2005.pred$CDF,pre2005.pred$CDF,"CDF of Pre- and Post 2005","Post-2
 
 
 #Do a classic disease analysis based on these numbers
+
+# Test ggplot2 map functions
+
+
+
+
+
+
+
