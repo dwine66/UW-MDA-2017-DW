@@ -90,7 +90,7 @@ plot.acf(icrm.arima$resid[-1], is.df = FALSE)
 
 # Forecasting
 fit.icrm = auto.arima(icrm, max.p=3, max.q=3,
-                       max.P=2, max.Q=2, max.order=5, max.d=2, max.D=1,
+                       max.P=2, max.Q=2, max.order=5, max.d=0, max.D=0,
                        start.p=0, start.q=0, start.P=0, start.Q=0)
 summary(fit.icrm)
 
@@ -98,3 +98,8 @@ summary(fit.icrm)
 elect.forecast = forecast(fit.icrm, h=12)
 summary(elect.forecast)
 plot(elect.forecast)
+
+# Plot residuals
+confint <- elect.forecast$upper-elect.forecast$lower
+plot(confint,main="Confidence Intervals of 2014 Ice Cream Forecast")
+

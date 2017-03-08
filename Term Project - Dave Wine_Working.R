@@ -23,7 +23,7 @@ require(rworldmap)
 beta.plot <- function(dist,success,failure){
   dist + c(success, failure)
   options(repr.plot.width=6, repr.plot.height=5)
-  triplot(dist, c(success,failure))
+  triplot(dist, c(success,failure),where="topleft")
   dist  
 }
 
@@ -31,7 +31,7 @@ beta.plot <- function(dist,success,failure){
 post.sim <- function (post, title){
   options(repr.plot.width=8, repr.plot.height=5)
   post.sample <- rbeta(10000, post[1], post[2])
-  par(mfrow = c(1,2))
+  par(mfrow = c(1,2),mar=c(5.1,4.1,2.1,2.1))
   quants = quantile(post.sample, c(0.05, 0.95))
   breaks = seq(min(post.sample), max(post.sample), length.out = 41)
   hist(post.sample, breaks = breaks, 
@@ -109,13 +109,14 @@ country.plot <- function(dataset,njoin,nplot,maxval,pname){
                   colourPalette = "diverging", mapTitle = pname)
 }
 
-country.multi <-function(dataset,njoin,nplot,maxval,pname){
+country.multi <-function(dataset,njoin,nplot,pname){
 
   par(mfcol=c(3,2),mai=c(0,0,0.25,0))
   
   for(i in seq(1970,2016,10)){
-    dfil <- filter(dataset,Year>=i,Year<=i+9) %>% group_by(njoin) %>% summarise(sum(nplot))
-    dfil.plot <- dfil[,3]
+    dfil <- filter(dataset,Year>=i,Year<=i+9) %>% group_by("country_txt") %>% dplyr::summarise(sum(n))
+    dfil.plot <- dfil[,2]
+    maxval <- max(dfil.plot)
     sPDF <- joinCountryData2Map(dfil, joinCode = "NAME", nameJoinColumn = njoin,verbose=TRUE)
     mapCountryData(sPDF, nameColumnToPlot=dfil.plot,catMethod = seq(0,maxval,by = maxval/10),
                    colourPalette = "diverging", mapTitle = pname)
@@ -265,17 +266,20 @@ country.plot(tnat.Country,"Origin","n",20, "Identified Foreign Terrorist Country
 
 #event grid plot
 gtd.CountryYear <- gtd.sub %>% group_by(Year) %>% dplyr::count(country_txt)
-#country.multi(gtd.CountryYear,"country_txt","n",1000, "Terror Attacks by Country")
+#country.multi(gtd.CountryYear,"country_txt",n,"Worldwide Terrorist Events")
 
-par(mfcol=c(3,2),mai=c(0,0,0.25,0))
+par(mfcol=c(3,2),mai=c(0.1,0.1,0.25,0.1))
 
 for(i in seq(1970,2016,10)){
-  dfil <- filter(gtd.CountryYear,Year>=i,Year<=i+9) %>% group_by(country_txt) %>% summarise(sum(n))
+  dfil <- filter(gtd.CountryYear,Year>=i,Year<=i+9) %>% group_by(country_txt) %>% dplyr::summarise(sum(n))
+  #dfil.plot <- dfil[,2]
+  maxval <- max(dfil[,2])
   sPDF <- joinCountryData2Map(dfil, joinCode = "NAME", nameJoinColumn = "country_txt",verbose=TRUE)
-  mapCountryData(sPDF, nameColumnToPlot="sum(n)",catMethod = seq(0,1000,by = 100),
-                  colourPalette = "diverging", mapTitle = "pname")
+  mapCountryData(sPDF, nameColumnToPlot="sum(n)",catMethod = seq(0,maxval,by = maxval/10),
+                 colourPalette = "diverging", mapTitle = paste("Worldwide Terrorist Attacks by Country, ",i," -",i+9))
 }
 
+# Plot by latitude and longitude
 map.plot(gtd.data,"Worldwide Terrorist Events - 1970-2015")
 
 par(mai=c(0,0,.25,0))
@@ -286,9 +290,22 @@ points(attacks.US.int$longitude, attacks.US.int$latitude,col='red',pch=1)
 points(attacks.US.dom$longitude, attacks.US.dom$latitude,col='blue',pch=1)
 # add legend
 
-map.plot(attacks.US,"Terrorist Events in the US",c(-150,-75),c(15,65))
+# US attacks only
+map.plot(attacks.US,"Foreign Terrorist Events in the US",c(-150,-75),c(15,65))
+
+# All attacks in the US in the 1970's
+
+attacks.WW.1970s <- filter(gtd.data,Year>=1970,Year<=1979) %>% group_by(country_txt) %>% dplyr::count(country_txt)
+
+attacks.US.1970s <- filter(gtd.data,country_txt=="United States",Year>=1970,Year<=1979) %>% group_by(attacktype1_txt) %>% dplyr::count(attacktype1_txt)
+
+attacks.US.1970s.groups <- filter(gtd.data,country_txt=="United States",Year>=1970,Year<=1979) %>% group_by(gname) %>% dplyr::count(gname)
+attacks.US.1980s.groups <- filter(gtd.data,country_txt=="United States",Year>=1980,Year<=1989) %>% group_by(gname) %>% dplyr::count(gname)
+attacks.US.1990s.groups <- filter(gtd.data,country_txt=="United States",Year>=1990,Year<=1999) %>% group_by(gname) %>% dplyr::count(gname)
+attacks.US.2000s.groups <- filter(gtd.data,country_txt=="United States",Year>=2000,Year<=2009) %>% group_by(gname) %>% dplyr::count(gname)
 
 # by year
+par(mfcol=c(1,1))
 hist(gtd.data$Year,breaks=46,main="worldwide attacks by year")
 
 ## Bayesian Analysis
@@ -314,18 +331,21 @@ tevents.US <- tevents.US %>% group_by(Year) %>% dplyr::summarise(count=sum(succe
 priors <- left_join(tdeaths.prior,murders.prior,by = "Year")
 events.prior <-left_join(tevents.US,murders.prior,by = "Year")
 
-barplot(tnat.data$Murders,names=tnat.data$Country)
+# of Fatalities
+tnat.Country <- tnat.data %>% group_by(Origin)%>% dplyr::summarize(Totalf = sum(Fatalities))
+barplot(tnat.Country$Totalf,names=tnat.Country$Origin)
 
-# Was there a death in the US due to terrorism that year (a=no, b=yes)
+# Was there a death in the US due to foreign terrorism that year (a=no, b=yes)
 #beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=.3))
-beta.par <-c(15,4)
+beta.par <-c(sum(tdeaths.prior$tfatal==0),sum(tdeaths.prior$tfatal>0))
 beta.par ## The parameters of my Beta distribution
 
 # Plot the Prior
 beta.plot(beta.par,0,0)
 
 # Plot the successive cumulative evidence
-par(mfcol=c(2,3))
+par(mfcol=c(3,2), mai=c(.3,.3,.3,.3))
+beta.plot(beta.par,0,0) # prior
 beta.plot(beta.par,5,1) # results for first 20
 beta.plot(beta.par,9,1) # results after 40
 beta.plot(beta.par,14,0) # results after 60
@@ -338,17 +358,18 @@ beta.plot(beta.par,24,0) # results after 60
 # The posterior is just the number of successes relative to the total number of trials
 beta.post.par <- beta.par + c(25,2)
 
-post.sim.local <- post.sim(beta.post.par, "Post-1990")
-post.sim.local
-post.sim.natl <-post.sim(beta.par,"Pre-1990")
-post.sim.natl
+
+post.sim.pre <- post.sim(beta.par,"Pre-1990")
+post.sim.pre
+post.sim.post <- post.sim(beta.post.par, "Post-1990")
+post.sim.post
 
 # 7 successes out of 60 observations
 predplot(beta.post.par, 25, 2)
 
 # Now look at the next 100 years
-post1990.pred <- distpred(beta.post.par,100,'Local')
-pre1990.pred <- distpred(beta.par,100,'National')
+post1990.pred <- distpred(beta.post.par,100,'Post-1990')
+pre1990.pred <- distpred(beta.par,100,'Pre-1990')
 
 # Compare the CDFs
 PDF <- data.frame(post1990.pred$PDF,pre1990.pred$PDF)
@@ -358,7 +379,8 @@ CDF <- data.frame(post1990.pred$CDF,pre1900.pred$CDF)
 dist.plot(post1990.pred$PDF,pre1990.pred$PDF,"PDF of Pre- and Post 1990","Post-1990","Pre-1990")
 dist.plot(post1990.pred$CDF,pre1990.pred$CDF,"PDF of Pre- and Post 1990","Post-1990","Pre-1990")
 
-# Bayesian #2: Refugee Correlation Study
+## Bayesian #2: Refugee Correlation Study
+
 # Filter to refugees that entered the US
 ref.us <-filter(ref.data,Destination=="United States",Population.type!="Returned refugees")
 ref.us.ter <-inner_join(ref.us,tnat.data,by="Origin")
