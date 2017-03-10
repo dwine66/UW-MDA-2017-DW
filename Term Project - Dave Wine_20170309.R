@@ -80,7 +80,7 @@ dist.plot <- function(data1,data2,Name,dname1,dname2){
 # Treemap Plot
 tree.plot <- function(dataset,var,size,name){
   par(mfcol=c(1,1),mai=c(0,0,.25,0))
-  treemap(dataset,var,size,type="index",palette="Greens",lowerbound.cex.labels = 0 ,title=name,aspRatio=1.5)
+  treemap(dataset,var,size,type="index",palette="Reds",lowerbound.cex.labels = 0 ,title=name,aspRatio=1.25)
 }
 
 # Incident Plotting
@@ -121,44 +121,6 @@ country.multi <-function(dataset,njoin,nplot,pname){
     mapCountryData(sPDF, nameColumnToPlot=dfil.plot,catMethod = seq(0,maxval,by = maxval/10),
                    colourPalette = "diverging", mapTitle = pname)
   }
-}
-# iterates through multiple posterior sets and plots
-iterate.Bayes <- function(dataset,YS,YE,YW){
-  
-  YearStart <- YS
-  YearEnd <- YE
-  YearWin <- YW
-  
-  colnames(dataset)[2] <-"count"
-  
-  dataset.prior <- filter(dataset,Year<YearStart)
-  
-  # Was there a death in the US due to foreign terrorism that year (a=no, b=yes)
-  # Define beta prior based on US incidents from 1975 to 1990
-  beta.par <-c(sum(dataset.prior$count==0),sum(dataset.prior$count>0))
-  beta.par ## The parameters of my Beta distribution
-  
-  # Plot the Prior
-  beta.plot(beta.par,0,0)
-  
-  # Plot the successive cumulative evidence over 
-  
-  par(mfcol=c(3,2), mai=c(.3,.3,.3,.3))
-  beta.plot(beta.par,0,0)
-  nFc <-0
-  nnFc <-0
-  # prior
-  # I know this code is ugly, but it worked...
-  for (i in seq(YearStart,YearEnd,by=YearWin)){
-    nFatYear <- subset(dataset,Year>=i & Year<(i+YearWin))$count
-    nFatFlag <- length(nFatYear[nFatYear!=0])
-    nFc <- nFc + nFatFlag
-    nnFc <- nnFc + YearWin-nFatFlag
-    #  cat(i," ",nFatYear,(YearWin-nFc),nnFc,nFc,'\n')
-    beta.plot(beta.par,nnFc,nFc) # results for each window 
-    
-  }
-  list(nFc,beta.par)
 }
 
 # File read function
@@ -205,7 +167,7 @@ gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
 # Add high-level 1993 data to gtd
 gtd.1993 <- read.datafile("gtd1993_0616dist_DW.csv")
 gtd.data <-rbind.fill(gtd.data,gtd.1993)
-gtd.year <-dplyr::summarise(group_by(gtd.data,Year))
+
 # Rename columns as needed
 colnames(gtd.data)[2] <-"Year"
 
@@ -241,9 +203,7 @@ gtd.sub <- select(gtd.data,Year,country,country_txt,longitude,latitude,attacktyp
 # Attacks that caused at least one death
 gtd.sub.fatal <- filter(gtd.sub,nkill!="NA")
 gtd.sub.fatal <- filter(gtd.sub,nkill>0)
-
-gtd.sub.fatal.US <- filter(gtd.sub,nkill!="NA")
-gtd.sub.fatal.US <- filter(gtd.sub,nkill>0,country_txt=="United States")
+gtd.sub.fatal$nkill <- log10(gtd.sub.fatal$nkill)
 
 # Attacks that killed more than 1000 people
 gtd.data.scary <- filter(gtd.data,nkill>1000)
@@ -253,8 +213,9 @@ gtd.data.low <- filter(gtd.data,nkill<1,nkill>0)
 
 # US murder data
 murders.sub <- select(filter(crime.data,Year>1969),Year,Murder) 
+murders.prior <- filter(murders.sub,Year<1991)
 
-## Filter US data
+## Define US data
 attacks.US<-filter(gtd.sub,country_txt=="United States")
 
 # Domestic vs International
@@ -277,11 +238,6 @@ hist(attacks.US.int$Year, breaks=46,main = "Foreign Terrorist attacks in the US"
 hist(attacks.US.dom$Year, breaks=46,main = "Domestic Terrorist attacks in the US")
 
 # Target Types
-
-ggplot(gtd.data, aes(x=reorder(targtype1_txt,targtype1_txt,function(x) -length(x)))) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle('Bar chart of Terrorist Target Type: Worldwide')
 ggplot(attacks.US, aes(x=reorder(targtype1_txt,targtype1_txt,function(x) -length(x)))) +
   geom_bar() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -292,15 +248,9 @@ ggplot(gtd.data, aes(x=reorder(targtype1_txt,targtype1_txt,function(x) -length(x
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   ggtitle('Bar chart of Terrorist Target Type: Worldwide')
 
-# WW Boxplot
 ggplot(gtd.sub.fatal, aes(x = factor(attacktype1_txt), y = nkill)) + geom_boxplot() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('Boxplot of WW Terrorism Fatalities by Attack Type') + scale_y_log10() +coord_flip()
-
-# US Boxplot
-ggplot(gtd.sub.fatal.US, aes(x = factor(attacktype1_txt), y = nkill)) + geom_boxplot() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('Boxplot of US Terrorism Fatalities by Attack Type') + scale_y_log10()
+  ggtitle('Boxplot of Terrorism Fatalities')
 
 # Plot treemap of attack methodologies worldwide
 atype.ww <- gtd.sub %>% dplyr::count(attacktype1_txt) 
@@ -314,7 +264,7 @@ country.plot(gtd.Country,"country_txt","n",20000, "Terror Attacks by Country, 19
 tnat.Country <- tnat.data %>% dplyr::count(Origin)
 country.plot(tnat.Country,"Origin","n",20, "Identified Foreign Terrorist Country of Origin, 1975-2015")
 
-# Event plot by country and year
+#event grid plot
 gtd.CountryYear <- gtd.sub %>% group_by(Year) %>% dplyr::count(country_txt)
 #country.multi(gtd.CountryYear,"country_txt",n,"Worldwide Terrorist Events")
 
@@ -338,7 +288,6 @@ plot(newmap,main="Terrorist Attacks in the US",xlim=c(-150,-75),ylim=c(15,65))
 points(attacks.US.unk$longitude, attacks.US.unk$latitude,col='grey',pch=.5)
 points(attacks.US.int$longitude, attacks.US.int$latitude,col='red',pch=1)
 points(attacks.US.dom$longitude, attacks.US.dom$latitude,col='blue',pch=1)
-
 # add legend
 
 # US attacks only
@@ -346,7 +295,7 @@ map.plot(attacks.US,"Foreign Terrorist Events in the US",c(-150,-75),c(15,65))
 
 # All attacks in the US in the 1970's
 
-
+attacks.WW.1970s <- filter(gtd.data,Year>=1970,Year<=1979) %>% group_by(country_txt) %>% dplyr::count(country_txt)
 attacks.US.1970s <- filter(gtd.data,country_txt=="United States",Year>=1970,Year<=1979) %>% group_by(attacktype1_txt) %>% dplyr::count(attacktype1_txt)
 
 attacks.US.1970s.groups <- filter(gtd.data,country_txt=="United States",Year>=1970,Year<=1979) %>% group_by(gname) %>% dplyr::count(gname)
@@ -354,15 +303,7 @@ attacks.US.1980s.groups <- filter(gtd.data,country_txt=="United States",Year>=19
 attacks.US.1990s.groups <- filter(gtd.data,country_txt=="United States",Year>=1990,Year<=1999) %>% group_by(gname) %>% dplyr::count(gname)
 attacks.US.2000s.groups <- filter(gtd.data,country_txt=="United States",Year>=2000,Year<=2009) %>% group_by(gname) %>% dplyr::count(gname)
 
-attacks.US.unk.groups <- filter(gtd.data,country_txt=="United States",INT_IDEO==-9) %>% group_by(gname) %>% dplyr::count(gname)
-attacks.US.dom.groups <- filter(gtd.data,country_txt=="United States",INT_IDEO==0) %>% group_by(gname) %>% dplyr::count(gname)
-attacks.US.int.groups <- filter(gtd.data,country_txt=="United States",INT_IDEO==1) %>% group_by(gname) %>% dplyr::count(gname)
-
-
 # by year
-
-attacks.WW.1970s <- filter(gtd.data,Year>=1970,Year<=1979) %>% group_by(country_txt) %>% dplyr::count(country_txt)
-
 par(mfcol=c(1,1))
 hist(gtd.data$Year,breaks=46,main="worldwide attacks by year")
 
@@ -371,59 +312,51 @@ hist(gtd.data$Year,breaks=46,main="worldwide attacks by year")
 # Bayesian #1: Analysis of attacks before and after 1991
 
 # Filter US attacks by international origin (exclude domestic & unknown) and if it caused a fatality
-# Was there a death in the US due to foreign terrorism that year (a=no, b=yes)
-# Define beta prior based on US incidents from 1975 to 1990
-
 tdeaths.US <- select(attacks.US.int,Year,nkillus)
 tdeaths.US <- filter(tdeaths.US,nkillus>=0)
 tdeaths.US <- tdeaths.US %>% group_by(Year) %>% dplyr::summarise(tfatal=sum(nkillus))
-# Correct for the fact that some years are missing - no events at all!
-tdeaths.US <- left_join(gtd.year,tdeaths.US, by="Year")
-tdeaths.US$tfatal[is.na(tdeaths.US$tfatal)] <-0
+tdeaths.prior <- filter(tdeaths.US,Year<1991)
+tdeaths.a <- filter(tdeaths.US,Year>=1991,Year<=1996)
+tdeaths.b <- filter(tdeaths.US,Year>=1997,Year<=2001)
+tdeaths.c <- filter(tdeaths.US,Year>=2002,Year<=2006)
+tdeaths.d <- filter(tdeaths.US,Year>=2007,Year<=2011)
+tdeaths.e <- filter(tdeaths.US,Year>=2012,Year<=2015)
 
-totfal=iterate.Bayes(tdeaths.US,1991,2015,5)
+# Define beta prior based on US incidents from 1975 to 1990
 
-beta.par <- totfal[[2]]
+#Event-based
+tevents.US <- select(filter(attacks.US,Year<1991,success==1),Year,success)
+tevents.US <- tevents.US %>% group_by(Year) %>% dplyr::summarise(count=sum(success))
+priors <- left_join(tdeaths.prior,murders.prior,by = "Year")
+events.prior <-left_join(tevents.US,murders.prior,by = "Year")
+
+# of Fatalities
+tnat.Country <- tnat.data %>% group_by(Origin)%>% dplyr::summarize(Totalf = sum(Fatalities))
+barplot(tnat.Country$Totalf,names=tnat.Country$Origin)
+
+# Was there a death in the US due to foreign terrorism that year (a=no, b=yes)
+#beta.par <- beta.select(list(p=0.5, x=0.1), list(p=0.75, x=.3))
+beta.par <-c(sum(tdeaths.prior$tfatal==0),sum(tdeaths.prior$tfatal>0))
+beta.par ## The parameters of my Beta distribution
+
+# Plot the Prior
+beta.plot(beta.par,0,0)
+
+# Plot the successive cumulative evidence
+par(mfcol=c(3,2), mai=c(.3,.3,.3,.3))
+beta.plot(beta.par,0,0) # prior
+beta.plot(beta.par,5,1) # results for first 20
+beta.plot(beta.par,9,1) # results after 40
+beta.plot(beta.par,14,0) # results after 60
+beta.plot(beta.par,19,0) # results after 60
+beta.plot(beta.par,24,0) # results after 60
+
 # Simulate from the posterior and 
 ## compute confidence intervals
 
 # The posterior is just the number of successes relative to the total number of trials
-beta.post.par <- beta.par + c((YearEnd-YearStart)+1,totfal[[1]])
+beta.post.par <- beta.par + c(25,2)
 
-post.sim.pre <- post.sim(beta.par,"Pre-1990")
-post.sim.pre
-post.sim.post <- post.sim(beta.post.par, "Post-1990")
-post.sim.post
-
-# 7 successes out of 60 observations
-#predplot(beta.post.par, 25, 2)
-
-# Now look at the next 100 years
-post1990.pred <- distpred(beta.post.par,100,'Post-1990')
-pre1990.pred <- distpred(beta.par,100,'Pre-1990')
-
-# Compare the CDFs
-PDF <- data.frame(post1990.pred$PDF,pre1990.pred$PDF)
-CDF <- data.frame(post1990.pred$CDF,pre1900.pred$CDF)
-
-# Plot PDFs and CDFs
-dist.plot(post1990.pred$PDF,pre1990.pred$PDF,"PDF of Pre- and Post 1990","Post-1990","Pre-1990")
-dist.plot(post1990.pred$CDF,pre1990.pred$CDF,"CDF of Pre- and Post 1990","Post-1990","Pre-1990")
-
-## Bayesian #2: Events - A slightly different question: 
-# In a given year, was there an attempted foreign terrorist event or not (a = no, b= yes)
-
-#Event-based
-tevents.US <- select(filter(attacks.US.int),Year,success)
-tevents.US <- tevents.US %>% group_by(Year) %>% dplyr::summarise(count=sum(success))
-tevents.US <- left_join(gtd.year,tevents.US, by="Year")
-tevents.US$count[is.na(tevents.US$count)] <-0
-
-totevn=iterate.Bayes(tevents.US,1991,2015,5)
-
-beta.par <- totevn[[2]]
-
-beta.post.par <- beta.par + c((YearEnd-YearStart)+1,totevn[[1]])
 
 post.sim.pre <- post.sim(beta.par,"Pre-1990")
 post.sim.pre
@@ -437,19 +370,13 @@ predplot(beta.post.par, 25, 2)
 post1990.pred <- distpred(beta.post.par,100,'Post-1990')
 pre1990.pred <- distpred(beta.par,100,'Pre-1990')
 
+# Compare the CDFs
+PDF <- data.frame(post1990.pred$PDF,pre1990.pred$PDF)
+CDF <- data.frame(post1990.pred$CDF,pre1900.pred$CDF)
 
-
-
-
-
-priors <- left_join(tdeaths.prior,murders.prior,by = "Year")
-events.prior <-left_join(tevents.US,murders.prior,by = "Year")
-
-
-
-# of Fatalities
-tnat.Country <- tnat.data %>% group_by(Origin)%>% dplyr::summarize(Totalf = sum(Fatalities))
-barplot(tnat.Country$Totalf,names=tnat.Country$Origin)
+# Plot PDFs and CDFs
+dist.plot(post1990.pred$PDF,pre1990.pred$PDF,"PDF of Pre- and Post 1990","Post-1990","Pre-1990")
+dist.plot(post1990.pred$CDF,pre1990.pred$CDF,"PDF of Pre- and Post 1990","Post-1990","Pre-1990")
 
 ## Bayesian #2: Refugee Correlation Study
 
@@ -529,6 +456,9 @@ dist.plot(post2005.pred$CDF,pre2005.pred$CDF,"CDF of Pre- and Post 2005","Post-2
 
 
 ### Function Test Area
+
+
+
 
 
 
