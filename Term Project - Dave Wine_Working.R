@@ -189,7 +189,7 @@ ref2.data <-read.datafile("20170305 UNHCR Refugee Data_US.csv",skip=4)
 
 # Terrorist Nationality
 tnat.data <-read.datafile("20170306 Nowrasteh Terrorist Country data.csv")
-tnat2.data <-read.datafile("AN_Terrorist_Nationality.csv")
+#tnat2.data <-read.datafile("AN_Terrorist_Nationality.csv")
 
 # US Crime database
 crime.data <- read.datafile("2015 US Crime Rates.csv")
@@ -205,9 +205,10 @@ gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
 # Add high-level 1993 data to gtd
 gtd.1993 <- read.datafile("gtd1993_0616dist_DW.csv")
 gtd.data <-rbind.fill(gtd.data,gtd.1993)
-gtd.year <-dplyr::summarise(group_by(gtd.data,Year))
+
 # Rename columns as needed
 colnames(gtd.data)[2] <-"Year"
+gtd.year <-dplyr::summarise(group_by(gtd.data,Year))
 
 colnames(ref.data)[1] <-"Destination"
 colnames(ref.data)[2] <-"Origin"
@@ -217,6 +218,7 @@ colnames(ref2.data)[2] <-"Destination"
 colnames(tnat.data)[5] <-"Origin"
 colnames(tnat.data)[4] <-"Visa.Type"
 colnames(tnat.data)[3] <-"Fatalities"
+colnames(tnat.data)[1] <-"Terrorists"
 
 # Turn NA's to zero where appropriate
 #ref.data <- gsub("*","NA",ref.data)
@@ -431,38 +433,63 @@ post.sim.post <- post.sim(beta.post.par, "Post-1990")
 post.sim.post
 
 # 7 successes out of 60 observations
-predplot(beta.post.par, 25, 2)
+# predplot(beta.post.par, 25, 2)
 
 # Now look at the next 100 years
 post1990.pred <- distpred(beta.post.par,100,'Post-1990')
 pre1990.pred <- distpred(beta.par,100,'Pre-1990')
 
-
-
-
-
-
 priors <- left_join(tdeaths.prior,murders.prior,by = "Year")
 events.prior <-left_join(tevents.US,murders.prior,by = "Year")
 
+# of Fatalities and # events by country of origin
+tnat.fat.Country <- tnat.data %>% group_by(Origin) %>% dplyr::summarize(Totalf = sum(Fatalities)) %>% arrange(Origin)
+tnat.evn.Country <- tnat.data %>% group_by(Origin) %>% dplyr::count(Date) %>% dplyr::count(Origin) %>% arrange(Origin)
+tnat.ter.Country <- tnat.data %>% group_by(Origin) %>% dplyr::count(Terrorists) %>% dplyr::count(Origin) %>% arrange(Origin)
+
+tnat.ref.Country <- tnat.data %>% group_by(Origin) %>% dplyr::count(wt = Visa.Type=="R")
+tnat.asy.Country <- tnat.data %>% group_by(Origin) %>% dplyr::count(wt = Visa.Type=="A")
 
 
-# of Fatalities
-tnat.Country <- tnat.data %>% group_by(Origin)%>% dplyr::summarize(Totalf = sum(Fatalities))
-barplot(tnat.Country$Totalf,names=tnat.Country$Origin)
+tnat.Country <- cbind(tnat.evn.Country,tnat.fat.Country$Totalf,tnat.ter.Country$nn,tnat.ref.Country$n,tnat.asy.Country$n)
+colnames(tnat.Country)[3] <- "nf"
+colnames(tnat.Country)[4] <- "nt"
+colnames(tnat.Country)[5] <- "nr"
+colnames(tnat.Country)[6] <- "na"
 
-## Bayesian #2: Refugee Correlation Study
+tnat.Country <- arrange(tnat.Country,desc(nf))
 
+ggplot(tnat.Country,aes(x=Origin,y=nn,fill=nf))  +
+  geom_bar(stat="identity") + ylim(0,13) +
+  coord_flip()+ggtitle("Foreign Terrorist Events in the US by Country of Origin, 1975-2015") +
+  ylab("Number of Events") +
+  scale_fill_gradient(low="darkblue",high="darkred", name="Number of Fatalites") +
+  geom_text(aes(label=nf), hjust=1.5,vjust=.3,  color="white", size=3)
+
+## Bayesian #3: Refugee Correlation Study
+
+# Plot refugees from those countries that entered the US
 # Filter to refugees that entered the US
 ref.us <-filter(ref.data,Destination=="United States",Population.type!="Returned refugees")
-ref.us.ter <-inner_join(ref.us,tnat.data,by="Origin")
-ref.us.ter <- filter(ref.us.ter,Terrorists!=0)
-#asy.us.ter <-filter(ref.us.ter,Population.type=="Asylum seekers")
-#ref.us.ter <-filter(ref.us.ter,Population.type=="Refugees")
+# Join terrorist nationality and visa data to this
+ref.us.ter <-inner_join(ref.us,tnat.Country,by="Origin")
+#ref.us.ter <- filter(ref.us.ter,Terrorists!=0)
+asy.us.ter <-filter(ref.us.ter,Population.type=="Asylum seekers")
+ref.us.ter <-filter(ref.us.ter,Population.type=="Refugees")
 
-ggplot(ref.us.ter,aes(log10(Total), Terrorists)) +
+ggplot(ref.us.ter,aes(log10(Total), nn)) +
   geom_point(aes(color=factor(Population.type))) +
-  coord_fixed(1/5)
+  coord_fixed(1/5) +
+  ylim(0,15) +
+  ggtitle("")
+
+ggplot(ref.us.ter,aes(x=Origin,y=Total,fill=nt))  +
+  geom_bar(stat="identity")  +
+  coord_flip()+ggtitle("Foreign Refugees in the US by Country of Origin, 1975-2015") +
+  ylab("Number of Refugees") +
+  scale_fill_gradient(low="darkblue",high="darkred",name="Number of Terrorists") + # scale_fill_discrete(name="test")
+  geom_text(aes(label=nt), hjust=-1.5,vjust=.3,  color="black", size=3)
+
 
 ggplot(ref.us.ter,aes(log10(Total), Murders)) +
   geom_point(aes(color=factor(Population.type))) 
