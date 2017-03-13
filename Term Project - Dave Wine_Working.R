@@ -3,7 +3,6 @@
 ## Term Project - Bayesian Analysis of Terrorism Risks
 
 ### Import packages
-
 require(car)
 require(plyr)
 require(dplyr)
@@ -28,6 +27,7 @@ beta.plot <- function(dist,success,failure,label=""){
   dist + c(success, failure)
   options(repr.plot.width=6, repr.plot.height=5)
   triplot(dist, c(success,failure),where="topleft")
+  # This adds a label to the plot based on the calling function, since triplot doesn't allow for it
   text(.5,1,label)
   dist  
 }
@@ -114,8 +114,15 @@ country.plot <- function(dataset,njoin,nplot,maxval,pname){
   mapCountryData( sPDF, nameColumnToPlot=nplot,catMethod = seq(0,maxval,by = maxval/10),
                   colourPalette = "diverging", mapTitle = pname,addLegend = TRUE)
 }
+# Basic ggplot barchart
+gg.hbc.re.plot <- function(xvar,yvar,tname,xname, yname){
+  ggplot(gtd.Country.TT, aes(x=reorder(country_txt,-n),y=n)) +
+    geom_bar(stat='identity') +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(aspect.ratio=2/3) +
+    ggtitle('Countries with the most terrorist attacks (1970-2015)') + xlab("Country") +ylab("Number of Attacks")
+}
 
-# iterates Bayes analysis through multiple posterior sets and plots
+# Iterating Bayes analysis through multiple posterior sets and plots
 iterate.Bayes <- function(dataset,YS,YE,YW){
   
   YearStart <- YS
@@ -123,49 +130,37 @@ iterate.Bayes <- function(dataset,YS,YE,YW){
   YearWin <- YW
   
   colnames(dataset)[2] <-"count"
-  
+  # Dfine the prior
   dataset.prior <- filter(dataset,Year<YearStart)
-  
-  # Was there a death in the US due to foreign terrorism that year (a=no, b=yes)
-  # Define beta prior based on US incidents from 1975 to 1990
   beta.par <-c(sum(dataset.prior$count==0),sum(dataset.prior$count>0))
-  beta.par ## The parameters of my Beta distribution
+  beta.par
   
   # Plot the Prior
   beta.plot(beta.par,0,0,paste(YearStart,"-",YearEnd))
   
-  # Plot the successive cumulative evidence over 
-  
+  # Plot the successive cumulative evidence over 6 plots
   par(mfcol=c(3,2), mai=c(.3,.3,.3,.3))
   beta.plot(beta.par,0,0,paste(YearStart,"-",YearStart+YearWin))
 
   nFc <-0
   nnFc <-0
-  # prior
+  # Plot each triplot by calling beta.plot with the right data
   # I know this code is ugly, but it worked...
   for (i in seq(YearStart,YearEnd,by=YearWin)){
     nFatYear <- subset(dataset,Year>=i & Year<(i+YearWin))$count
     nFatFlag <- length(nFatYear[nFatYear!=0])
     nFc <- nFc + nFatFlag
     nnFc <- nnFc + YearWin-nFatFlag
-    #  cat(i," ",nFatYear,(YearWin-nFc),nnFc,nFc,'\n')
     beta.plot(beta.par,nnFc,nFc,paste(i,"-",i+YearWin)) # results for each window 
     
   }
+  # Return the prior and the total number of 'successes'
   list(nFc,beta.par)
 }
 
 # File read function
-read.datafile = function(file = 'Automobile price data _Raw_.csv',skip=0){
+read.datafile = function(file = '',skip=0){
   datafile.data <- read.csv(file, header=TRUE, stringsAsFactors=FALSE,skip=skip)
-  
-#  numcols <- c('bore','stroke','horsepower','price','peak.rpm')
-#  gtd.data[, numcols]<-lapply(auto.data[,numcols], as.numeric)
-  
-#  factcols <- c('make','fuel.type','aspiration','num.of.doors','drive.wheels','engine.location','engine.type','num.of.cylinders','fuel.system','body.style')
-#  gtd.data[, factcols]<-lapply(auto.data[,factcols], as.factor)
-  
-#  gtd.data[complete.cases(auto.data),]
 }
 
 ###
@@ -199,31 +194,31 @@ gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
 ##  Clean up GTD data
 # Add high-level 1993 data to gtd
 gtd.1993 <- read.datafile("gtd1993_0616dist_DW.csv")
-gtd.data <-rbind.fill(gtd.data,gtd.1993)
+gtd.data <- rbind.fill(gtd.data,gtd.1993)
 gtd.data$success[is.na(gtd.data$success)] <-0
 
 # Rename columns as needed
 colnames(gtd.data)[2] <-"Year"
-gtd.year <-dplyr::summarise(group_by(gtd.data,Year))
+gtd.year <- dplyr::summarise(group_by(gtd.data,Year))
 
 
 # Clean up refugee data
-colnames(ref.data)[1] <-"Destination"
-colnames(ref.data)[2] <-"Origin"
+colnames(ref.data)[1] <- "Destination"
+colnames(ref.data)[2] <- "Origin"
 
-colnames(ref2.data)[1] <-"Year"
-colnames(ref2.data)[2] <-"Destination"
-colnames(ref2.data)[3] <-"Origin"
-colnames(ref2.data)[4] <-"Type"
-colnames(ref2.data)[5] <-"Number"
+colnames(ref2.data)[1] <- "Year"
+colnames(ref2.data)[2] <- "Destination"
+colnames(ref2.data)[3] <- "Origin"
+colnames(ref2.data)[4] <- "Type"
+colnames(ref2.data)[5] <- "Number"
 
 
 # Chop off data before 1988 - no origin data
 ref2.data <- filter(ref2.data,Year>1987)
 ref2.data <- filter(ref2.data,Number!="*")
+
 # Turn NA's to zero where appropriate
-#ref.data <- gsub("*","NA",ref.data)
-ref.data[is.na(ref.data)] <-0
+ref.data[is.na(ref.data)] <- 0
 
 # Add summary data where appropriate 
 ref.data$Total <- rowSums(ref.data[,4:15]) #through 2012
@@ -233,16 +228,12 @@ ref3.data$Total <- rowSums(ref3.data[,1:9]) #through 2015
 ref3.trans <- tidyr::gather(ref3.data,"Type","n",2:9)
 
 # Clean up Terrorist Nationality Data
-colnames(tnat.data)[5] <-"Origin"
-colnames(tnat.data)[4] <-"Visa.Type"
-colnames(tnat.data)[3] <-"Fatalities"
-colnames(tnat.data)[1] <-"Terrorists"
+colnames(tnat.data)[5] <- "Origin"
+colnames(tnat.data)[4] <- "Visa.Type"
+colnames(tnat.data)[3] <- "Fatalities"
+colnames(tnat.data)[1] <- "Terrorists"
 
 weather.data <- filter(weather.data,Year>1969)
-
-str(ref.data)
-str(tnat.data)
-str(gtd.data)
 
 ###
 ### Main Code
@@ -258,7 +249,6 @@ gtd.sub <- select(gtd.data,Year,country,country_txt,longitude,latitude,provstate
 gtd.sub.fatal <- filter(gtd.sub,nkill!="NA")
 gtd.sub.fatal <- filter(gtd.sub,nkill>0)
 
-
 # Map WW and US events, etc.
 gtd.Country <- gtd.data %>% dplyr::count(country_txt)
 country.plot(gtd.Country,"country_txt","n",20000, "Terror Attacks by Country, 1970-2015")
@@ -270,10 +260,12 @@ ggplot(gtd.Country.TT, aes(x=reorder(country_txt,-n),y=n)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) + theme(aspect.ratio=2/3) +
   ggtitle('Countries with the most terrorist attacks (1970-2015)') + xlab("Country") +ylab("Number of Attacks")
 
+# try out ggplot function here
+
 tnat.Country <- tnat.data %>% dplyr::count(Origin)
 country.plot(tnat.Country,"Origin","n",20, "Identified Foreign Terrorist Country of Origin, 1975-2015")
 
-# Event plot by country and year
+# Event plot by country and year (I was not able to functionalize this for some reason!)
 gtd.CountryYear <- gtd.sub %>% group_by(Year) %>% dplyr::count(country_txt)
 
 par(mfcol=c(3,2),mai=c(0.1,0.1,0.25,0.1))
@@ -290,9 +282,9 @@ for(i in seq(1970,2016,10)){
 
 gtd.success <- gtd.data %>% group_by(attacktype1_txt) %>% dplyr::count(success)
 gtd.fatal <-gtd.data %>% group_by(nkill>0) %>% dplyr::count(attacktype1_txt)
-
 gtd.fatal <- gtd.fatal %>% dplyr::summarise(sum(n))
 
+#Prototype this (x only function)
 ggplot(gtd.fatal, aes(x=reorder(attacktype1_txt,attacktype1_txt,function(x) -length(x)))) +
   geom_bar() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -319,8 +311,6 @@ ggplot(gtd.sub.fatal, aes(x=reorder(attacktype1_txt,attacktype1_txt,function(x) 
   ggtitle('Boxplot of WW Terrorism Fatalities by Attack Type') + xlab('Attack Type') +
   scale_y_log10(name="Number of Fatalites",breaks=c(1,10,100,1000))
 
-#ggplot(gtd.sub.fatal, aes(x = factor(attacktype1_txt), y = nkill)) + geom_boxplot() +
-
 ### US Overview
 ## Filter US data
 attacks.US<-filter(gtd.sub,country_txt=="United States")
@@ -336,7 +326,6 @@ attacks.US$Decade <- paste(as.character(attacks.US$Decade),"'s")
 
 # Plot all states with ggplot
 all_states <- map_data("state")
-
 p <- ggplot()
 p <- p + geom_polygon( data=all_states, aes(x=long, y=lat, group = group),colour="black", fill="grey50" )
 p <- p + geom_point( data=attacks.US, aes(x=longitude, y=latitude, color = attacktype1_txt)) + 
@@ -344,7 +333,6 @@ p <- p + geom_point( data=attacks.US, aes(x=longitude, y=latitude, color = attac
   ggtitle('Terror Attacks in the Continental US, 1970-2015')+
   theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
  theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
-#p <- p + geom_text( data=attacks.US, hjust=0.5, vjust=-0.5, aes(x=long, y=lat, label=label), colour="gold2", size=4 )
 p
 
 # US Boxplot
@@ -356,7 +344,7 @@ ggplot(gtd.sub.fatal.US, aes(x = factor(attacktype1_txt), y = nkill)) + geom_box
 # Top Ten Groups by decade
 gtd.USgroupk.TT <- attacks.US %>% dplyr::count(gname,wt=nkill) %>% arrange(desc(n)) %>% slice(1:10)
 
-
+# use the basic function here
 ggplot(gtd.USgroupk.TT, aes(x=reorder(gname,-n),y=n)) +
   geom_bar(stat='identity') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -377,18 +365,21 @@ attacks.US.unk <- filter(gtd.sub,country_txt=="United States",INT_IDEO==-9)
 
 dom.biz <- filter(attacks.US, targtype1_txt=="Business") %>% dplyr::count(gname) %>% arrange(desc(n))
 
+# use the function here
 ggplot(dom.biz[1:10,], aes(x=reorder(gname,-n),y=n)) +
   geom_bar(stat='identity') +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   ggtitle('Top Ten terrorist groups attacking US Businesses, 1970-2015') + 
   xlab('Group') + ylab('Number of Attacks')
 
+# Show the issues with the INT_IDEO variable
 attacks.US.type$INT_IDEO <- paste("INT_IDEO",as.character(attacks.US.type$n))
 tree.plot(attacks.US.type,"INT_IDEO","n","Source of US Attacks, 1970-2015")
 
+# Illustrate groups of unknown type
 attacks.US.unk.tm <- attacks.US.unk %>% dplyr::count(gname)
-
 tree.plot(attacks.US.unk.tm,"gname","n","US Attacks by Unknown Source, 1970-2015")
+
 ## Bayesian Analysis
 
 # Bayesian #1: Analysis of attacks before and after 1991
@@ -406,6 +397,7 @@ tdeaths.US <- tdeaths.US %>% group_by(Year) %>% dplyr::summarise(tfatal=sum(nkil
 tdeaths.US <- left_join(gtd.year,tdeaths.US, by="Year")
 tdeaths.US$tfatal[is.na(tdeaths.US$tfatal)] <-0
 
+# Send this to the Bayes plotting functions
 totfal=iterate.Bayes(tdeaths.US,1991,2015,5)
 
 beta.par <- totfal[[2]]
@@ -420,13 +412,17 @@ post.sim.pre
 post.sim.post <- post.sim(beta.post.par, "Post-1990")
 post.sim.post
 
-# 7 successes out of 60 observations
+
 #predplot(beta.post.par, 25, 2)
 
 # Now look at the next 100 years
 post1990.pred <- distpred(beta.post.par,100,'Post-1990')
 pre1990.pred <- distpred(beta.par,100,'Pre-1990')
 
+
+
+
+# probabaly get rid of this section
 # Compare the CDFs
 PDF <- data.frame(post1990.pred$PDF,pre1990.pred$PDF)
 CDF <- data.frame(post1990.pred$CDF,pre1900.pred$CDF)
@@ -455,17 +451,9 @@ post.sim.pre
 post.sim.post <- post.sim(beta.post.par, "Post-1990")
 post.sim.post
 
-# 7 successes out of 60 observations
-# predplot(beta.post.par, 25, 2)
 
-# Now look at the next 100 years
-post1990.pred <- distpred(beta.post.par,100,'Post-1990')
-pre1990.pred <- distpred(beta.par,100,'Pre-1990')
 
-priors <- left_join(tdeaths.prior,murders.prior,by = "Year")
-events.prior <-left_join(tevents.US,murders.prior,by = "Year")
-
-###
+### Plot terrorist entry and visa type
 
 # of Fatalities and # events by country of origin
 tnat.fat.Country <- tnat.data %>% group_by(Origin) %>% dplyr::summarize(Totalf = sum(Fatalities)) %>% arrange(Origin)
@@ -482,6 +470,7 @@ colnames(tnat.Country)[6] <- "na"
 
 tnat.Country <- arrange(tnat.Country,desc(nf))
 
+# why do you have 2 functions here?
 ggplot(tnat.Country,aes(x=reorder(Origin,nn),y=nn,fill=nf))  +
   geom_bar(stat="identity") + ylim(0,13) +
   coord_flip()+ggtitle("Foreign Terrorist Events in the US by \nCountry of Terrorist Origin, 1975-2015") +
@@ -502,15 +491,75 @@ ggplot(tnat.Country,aes(x=reorder(Origin,nn),y=nn,fill=nf))  +
 # Refugee flows based on AN data
 ggplot(ref3.data, aes(x=Year,y=Refugee)) +
   geom_bar(stat='identity' ) +
-  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   ggtitle('Refugee Entry into the US, 1989-2015') + 
   xlab('Group') + ylab('Number of Refugees')
 
-## Bayesian #3: Refugee Correlation Study
+# All non-citizen entries
+ggplot(data=ref3.trans, aes(x=Year, y=n, fill=Type)) +
+  geom_bar(stat="identity")+
+  scale_fill_brewer(palette="BrBG") +
+  ggtitle('Non-citizen Entry into US, 1989-2015') + ylab('Number of Visitors')
 
+## Bayesian #3: Refugee Correlation Study
+# Do a classic 'disease analysis' based on these numbers
+
+# Well this conversion only took about 45 minutes to figure out....
+tnat.data$Year <- as.POSIXlt(as.Date(tnat.data$Date, format='%m/%d/%Y'))$year+1900
+
+# Get data on terrorists that were refugees or asylum-seekers
+tnat.ter.Year <- tnat.data %>% group_by(Year)  %>% dplyr::count(Terrorists) %>% count(Year)
+tnat.ref.Year <- tnat.data %>% group_by(Year) %>% dplyr::count(wt = Visa.Type=="R")
+tnat.asy.Year <- tnat.data %>% group_by(Year) %>% dplyr::count(wt = Visa.Type=="A")
+
+tnat.Year <- cbind(tnat.ter.Year,tnat.ref.Year$n,tnat.asy.Year$n)
+colnames(tnat.Year)[2] <- "nt"
+colnames(tnat.Year)[3] <- "nr"
+colnames(tnat.Year)[4] <- "na"
+
+# Make sure every year is represented
+tnat.Year <- left_join(gtd.year,tnat.Year, by="Year")
+tnat.Year[is.na(tnat.Year)] <-0
+
+# Define terrorist dataset
+tnat.Bayes <- filter(tnat.Year, Year>1988)
+
+# Join to refugee data
+ref.Bayes <- left_join(ref3.data,tnat.Bayes,by="Year")
+
+# Use Bayes' rule to get P(Terrorist|Refugee)
+ref.Bayes <- mutate(ref.Bayes,Per=Refugee/Total)
+ref.Bayes <- mutate(ref.Bayes,Pet=nt/Total)
+ref.Bayes <- mutate(ref.Bayes,Prt=(nr+na)/nt)
+ref.Bayes <- mutate(ref.Bayes,Ptr=Prt*Pet/Per)
+ref.Bayes$Ptr[is.nan(ref.Bayes$Ptr)] <-0
+
+# Includes refugees and asylum seekers
+ggplot(ref.Bayes,aes(x=Year,y=(Ptr)))  +
+  geom_point(stat="identity")  +
+  ggtitle("Bayesian Estimate of Terrorism Risk from Refugees & Asylum Seekers, 1989-2015") +
+  ylab("Probability that a refugee is a terrorist") 
+
+# How likely is it that a given year will be free of a terrorist successfully 
+# entering the country as a refugee? (a=yes, b= no)
+tot.tref=iterate.Bayes(select(ref.Bayes,Year,nr),1991,2015,5)
+
+beta.par <- tot.tref[[2]]
+
+beta.post.par <- beta.par + c((YearEnd-YearStart)+1,tot.tref[[1]])
+
+post.sim.pre <- post.sim(beta.par,"Pre-1990")
+post.sim.pre
+post.sim.post <- post.sim(beta.post.par, "Post-1990")
+post.sim.post
+
+
+
+
+
+
+## Failed Bayes work
 # Plot refugees from those countries that entered the US
 ref2.Totals <- ref2.data %>% group_by(Origin) %>% dplyr::summarize(totalr=sum(as.numeric(Number)))
-
 country.plot(ref2.Totals,"Origin","totalr",max(ref2.Totals$totalr), "Refugee entry to the US, 1988-2015")
 
 
@@ -518,7 +567,6 @@ country.plot(ref2.Totals,"Origin","totalr",max(ref2.Totals$totalr), "Refugee ent
 ref.us <-filter(ref2.data,Destination=="United States",Population.type!="Returned refugees")
 
 #Only have refugee data
-
 
 # Join terrorist nationality and visa data to this
 ref.us.ter <-inner_join(ref.us,tnat.Country,by="Origin")
@@ -598,63 +646,6 @@ ref2005.CDF <- data.frame(post2005.pred$CDF,pre2005.pred$CDF)
 # Plot PDFs
 dist.plot(post2005.pred$PDF,pre2005.pred$PDF,"PDF of Pre- and Post 2005","Post-2005","Pre-2005")
 dist.plot(post2005.pred$CDF,pre2005.pred$CDF,"CDF of Pre- and Post 2005","Post-2005","Pre-2005")
-
-#Do a classic disease analysis based on these numbers
-# Well this conversion only took about 45 minutes to figure out....
-tnat.data$Year <- as.POSIXlt(as.Date(tnat.data$Date, format='%m/%d/%Y'))$year+1900
-
-tnat.ter.Year <- tnat.data %>% group_by(Year)  %>% dplyr::count(Terrorists) %>% count(Year)
-tnat.ref.Year <- tnat.data %>% group_by(Year) %>% dplyr::count(wt = Visa.Type=="R")
-tnat.asy.Year <- tnat.data %>% group_by(Year) %>% dplyr::count(wt = Visa.Type=="A")
-
-
-tnat.Year <- cbind(tnat.ter.Year,tnat.ref.Year$n,tnat.asy.Year$n)
-colnames(tnat.Year)[2] <- "nt"
-colnames(tnat.Year)[3] <- "nr"
-colnames(tnat.Year)[4] <- "na"
-
-# Make sure every year is represented
-tnat.Year <- left_join(gtd.year,tnat.Year, by="Year")
-tnat.Year[is.na(tnat.Year)] <-0
-tnat.Bayes <- filter(tnat.Year, Year>1988)
-
-ref.Bayes <- left_join(ref3.data,tnat.Bayes,by="Year")
-
-ref.Bayes <- mutate(ref.Bayes,Per=Refugee/Total)
-ref.Bayes <- mutate(ref.Bayes,Pet=nt/Total)
-ref.Bayes <- mutate(ref.Bayes,Prt=(nr+na)/nt)
-ref.Bayes <- mutate(ref.Bayes,Ptr=Prt*Pet/Per)
-ref.Bayes$Ptr[is.nan(ref.Bayes$Ptr)] <-0
-
-# Includes refugees and asylum seekers
-ggplot(ref.Bayes,aes(x=Year,y=(Ptr)))  +
-  geom_point(stat="identity")  +
-  ggtitle("Bayesian Estimate of Terrorism Risk from Refugees & Asylum Seekers, 1989-2015") +
-  ylab("Probability that a refugee is a terrorist") 
-
-# How likely is it that a given year will be free of a terrorist successfully 
-# entering the country as a refugee? (a=yes, b= no)
-tot.tref=iterate.Bayes(select(ref.Bayes,Year,nr),1991,2015,5)
-
-beta.par <- tot.tref[[2]]
-
-beta.post.par <- beta.par + c((YearEnd-YearStart)+1,tot.tref[[1]])
-
-post.sim.pre <- post.sim(beta.par,"Pre-1990")
-post.sim.pre
-post.sim.post <- post.sim(beta.post.par, "Post-1990")
-post.sim.post
-
-# All non-citizen entries
-ggplot(data=ref3.trans, aes(x=Year, y=n, fill=Type)) +
-  geom_bar(stat="identity")+
-  scale_fill_brewer(palette="BrBG") +
-  ggtitle('Non-citizen Entry into US, 1989-2015') + ylab('Number of Visitors')
-
-
-
-
-
 
 
 
