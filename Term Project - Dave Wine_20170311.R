@@ -1,15 +1,13 @@
 ### UW Data Science Winter 2017
 ## Dave Wine 8430191
-## Term Project - Bayesian Analysis of Terrorism Risks
+## Term Project - Refugees, Terrorism, and Airstrikes
 
 ### Import packages
 
 require(car)
 require(plyr)
 require(dplyr)
-require(tidyr)
 require(LearnBayes)
-require(RColorBrewer)
 
 # For plotting
 require(ggplot2)
@@ -19,16 +17,13 @@ require(repr)
 
 # For mapping
 require(rworldmap)
-require(maps)
 
 ### Functions
-
 # Bayesian Beta Plot
-beta.plot <- function(dist,success,failure,label=""){
+beta.plot <- function(dist,success,failure){
   dist + c(success, failure)
   options(repr.plot.width=6, repr.plot.height=5)
   triplot(dist, c(success,failure),where="topleft")
-  text(.5,1,label)
   dist  
 }
 
@@ -85,8 +80,7 @@ dist.plot <- function(data1,data2,Name,dname1,dname2){
 # Treemap Plot
 tree.plot <- function(dataset,var,size,name){
   par(mfcol=c(1,1),mai=c(0,0,.25,0))
-  treemap(dataset,var,size,type="index",palette="Greens", 
-          lowerbound.cex.labels = 0 ,title=name,aspRatio=1.5)
+  treemap(dataset,var,size,type="index",palette="Greens",lowerbound.cex.labels = 0 ,title=name,aspRatio=1.5)
 }
 
 # Incident Plotting
@@ -115,7 +109,20 @@ country.plot <- function(dataset,njoin,nplot,maxval,pname){
                   colourPalette = "diverging", mapTitle = pname,addLegend = TRUE)
 }
 
-# iterates Bayes analysis through multiple posterior sets and plots
+country.multi <-function(dataset,njoin,nplot,pname){
+
+  par(mfcol=c(3,2),mai=c(0,0,0.25,0))
+  
+  for(i in seq(1970,2016,10)){
+    dfil <- filter(dataset,Year>=i,Year<=i+9) %>% group_by("country_txt") %>% dplyr::summarise(sum(n))
+    dfil.plot <- dfil[,2]
+    maxval <- max(dfil.plot)
+    sPDF <- joinCountryData2Map(dfil, joinCode = "NAME", nameJoinColumn = njoin,verbose=TRUE)
+    mapCountryData(sPDF, nameColumnToPlot=dfil.plot,catMethod = seq(0,maxval,by = maxval/10),
+                   colourPalette = "diverging", mapTitle = pname)
+  }
+}
+# iterates through multiple posterior sets and plots
 iterate.Bayes <- function(dataset,YS,YE,YW){
   
   YearStart <- YS
@@ -132,13 +139,12 @@ iterate.Bayes <- function(dataset,YS,YE,YW){
   beta.par ## The parameters of my Beta distribution
   
   # Plot the Prior
-  beta.plot(beta.par,0,0,paste(YearStart,"-",YearEnd))
+  beta.plot(beta.par,0,0)
   
   # Plot the successive cumulative evidence over 
   
   par(mfcol=c(3,2), mai=c(.3,.3,.3,.3))
-  beta.plot(beta.par,0,0,paste(YearStart,"-",YearStart+YearWin))
-
+  beta.plot(beta.par,0,0)
   nFc <-0
   nnFc <-0
   # prior
@@ -149,7 +155,7 @@ iterate.Bayes <- function(dataset,YS,YE,YW){
     nFc <- nFc + nFatFlag
     nnFc <- nnFc + YearWin-nFatFlag
     #  cat(i," ",nFatYear,(YearWin-nFc),nnFc,nFc,'\n')
-    beta.plot(beta.par,nnFc,nFc,paste(i,"-",i+YearWin)) # results for each window 
+    beta.plot(beta.par,nnFc,nFc) # results for each window 
     
   }
   list(nFc,beta.par)
@@ -169,7 +175,7 @@ read.datafile = function(file = 'Automobile price data _Raw_.csv',skip=0){
 }
 
 ###
-### Read in and clean up datasets
+### Setup Data
 ###
 
 ## Read data in
@@ -186,8 +192,8 @@ ref3.data <-read.datafile("Reporters_Entry_Data.csv")
 tnat.data <-read.datafile("20170306 Nowrasteh Terrorist Country data.csv")
 #tnat2.data <-read.datafile("AN_Terrorist_Nationality.csv")
 
-# US Weather database
-weather.data <- read.datafile("2016 NOAA Weather Fatalities.txt")
+# US Crime database
+crime.data <- read.datafile("2015 US Crime Rates.csv")
 
 # Foreign Terrorist Visa List
 visa.data <- read.datafile("2016 Terrorism and Risk_visalist.txt")
@@ -196,16 +202,14 @@ visa.data <- read.datafile("2016 Terrorism and Risk_visalist.txt")
 setwd(paste(wd,"/GTD_0616dist",sep=""))
 gtd.data <- read.datafile("globalterrorismdb_0616dist.csv")
 
-##  Clean up GTD data
+##  Clean up database
 # Add high-level 1993 data to gtd
 gtd.1993 <- read.datafile("gtd1993_0616dist_DW.csv")
 gtd.data <-rbind.fill(gtd.data,gtd.1993)
-gtd.data$success[is.na(gtd.data$success)] <-0
 
 # Rename columns as needed
 colnames(gtd.data)[2] <-"Year"
 gtd.year <-dplyr::summarise(group_by(gtd.data,Year))
-
 
 # Clean up refugee data
 colnames(ref.data)[1] <-"Destination"
@@ -229,41 +233,26 @@ ref.data[is.na(ref.data)] <-0
 ref.data$Total <- rowSums(ref.data[,4:15]) #through 2012
 ref3.data$Total <- rowSums(ref3.data[,1:9]) #through 2015
 
-# Transaction version of ref3
-ref3.trans <- tidyr::gather(ref3.data,"Type","n",2:9)
-
 # Clean up Terrorist Nationality Data
 colnames(tnat.data)[5] <-"Origin"
 colnames(tnat.data)[4] <-"Visa.Type"
 colnames(tnat.data)[3] <-"Fatalities"
 colnames(tnat.data)[1] <-"Terrorists"
 
-weather.data <- filter(weather.data,Year>1969)
-
 str(ref.data)
 str(tnat.data)
+str(crime.data)
 str(gtd.data)
 
 ###
 ### Main Code
 ###
 
-## Subset most relevant data
-
-# INT_IDEO is the closest thing to country data in the GTD.
-gtd.sub <- select(gtd.data,Year,country,country_txt,longitude,latitude,provstate,attacktype1_txt,targtype1, +
-                    targtype1_txt,success,nkill,nkillus,nwound,nwoundus,INT_IDEO,gname)
-
-# Attacks that caused at least one death
-gtd.sub.fatal <- filter(gtd.sub,nkill!="NA")
-gtd.sub.fatal <- filter(gtd.sub,nkill>0)
-
-
 # Map WW and US events, etc.
 gtd.Country <- gtd.data %>% dplyr::count(country_txt)
 country.plot(gtd.Country,"country_txt","n",20000, "Terror Attacks by Country, 1970-2015")
 
-gtd.Country.TT <- dplyr::arrange(gtd.Country,desc(n)) %>% slice(1:30)
+gtd.Country.TT <- dplyr::arrange(gtd.Country,desc(n)) %>% slice(1:10)
 
 ggplot(gtd.Country.TT, aes(x=reorder(country_txt,-n),y=n)) +
   geom_bar(stat='identity') +
@@ -286,118 +275,133 @@ for(i in seq(1970,2016,10)){
                  colourPalette = "diverging", mapTitle = paste("Worldwide Terrorist Attacks by Country, ",i," -",i+9))
 }
 
-# Fatal likelihood:
+# Plot by latitude and longitude
+map.plot(gtd.data,"Worldwide Terrorist Events - 1970-2015")
 
-gtd.success <- gtd.data %>% group_by(attacktype1_txt) %>% dplyr::count(success)
-gtd.fatal <-gtd.data %>% group_by(nkill>0) %>% dplyr::count(attacktype1_txt)
+par(mai=c(0,0,.25,0),oma=c(0.25,0.25,0.25,0.25))
+newmap <- getMap(resolution = "low")
+plot(newmap,main="Terrorist Attacks in the US",xlim=c(-150,-75),ylim=c(15,65))
+points(attacks.US.unk$longitude, attacks.US.unk$latitude,col='grey',pch=.5)
+points(attacks.US.int$longitude, attacks.US.int$latitude,col='red',pch=1)
+points(attacks.US.dom$longitude, attacks.US.dom$latitude,col='blue',pch=1)
 
-gtd.fatal <- gtd.fatal %>% dplyr::summarise(sum(n))
+# add legend
 
-ggplot(gtd.fatal, aes(x=reorder(attacktype1_txt,attacktype1_txt,function(x) -length(x)))) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('Bar chart of Terrorist Target Type: Worldwide') + xlab('Attack Type') + ylab('Number of Attacks')
+# US attacks only
+map.plot(attacks.US,"Foreign Terrorist Events in the US",c(-150,-75),c(15,65))
 
-# WW Attack Type dotplot
-ggplot(gtd.fatal, aes(x=("nkill > 0"), y=n)) + geom_histogram(aes(color=factor(attacktype1_txt))) +
- # facet_grid( factor(success)~.)+
- # theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle('Bar chart of Terrorist Attack Type: Worldwide') + xlab('Attack Type') 
-  #scale_y_log10(name="Number of Fatalites",breaks=c(100,1000,10000)) 
+# All attacks in the US in the 1970's
 
-# Attack Type Histogram
-ggplot(gtd.data, aes(x=reorder(attacktype1_txt,attacktype1_txt,function(x) -length(x)))) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('Bar chart of Terrorist Target Type: Worldwide') + xlab('Attack Type') + ylab('Number of Attacks')
 
-gtd.data.at <- gtd.data %>% dplyr::count(attacktype1_txt) %>% arrange(desc(n))
+attacks.US.1970s <- filter(gtd.data,country_txt=="United States",Year>=1970,Year<=1979) %>% group_by(attacktype1_txt) %>% dplyr::count(attacktype1_txt)
 
-# WW Fatality Boxplot
-ggplot(gtd.sub.fatal, aes(x=reorder(attacktype1_txt,attacktype1_txt,function(x) -length(x)), y = nkill)) + 
-  geom_boxplot() +   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('Boxplot of WW Terrorism Fatalities by Attack Type') + xlab('Attack Type') +
-  scale_y_log10(name="Number of Fatalites",breaks=c(1,10,100,1000))
+attacks.US.1970s.groups <- filter(gtd.data,country_txt=="United States",Year>=1970,Year<=1979) %>% group_by(gname) %>% dplyr::count(gname)
+attacks.US.1980s.groups <- filter(gtd.data,country_txt=="United States",Year>=1980,Year<=1989) %>% group_by(gname) %>% dplyr::count(gname)
+attacks.US.1990s.groups <- filter(gtd.data,country_txt=="United States",Year>=1990,Year<=1999) %>% group_by(gname) %>% dplyr::count(gname)
+attacks.US.2000s.groups <- filter(gtd.data,country_txt=="United States",Year>=2000,Year<=2009) %>% group_by(gname) %>% dplyr::count(gname)
 
-#ggplot(gtd.sub.fatal, aes(x = factor(attacktype1_txt), y = nkill)) + geom_boxplot() +
+attacks.US.unk.groups <- filter(gtd.data,country_txt=="United States",INT_IDEO==-9) %>% group_by(gname) %>% dplyr::count(gname)
+attacks.US.dom.groups <- filter(gtd.data,country_txt=="United States",INT_IDEO==0) %>% group_by(gname) %>% dplyr::count(gname)
+attacks.US.int.groups <- filter(gtd.data,country_txt=="United States",INT_IDEO==1) %>% group_by(gname) %>% dplyr::count(gname)
 
-### US Overview
+
+# by year
+
+attacks.WW.1970s <- filter(gtd.data,Year>=1970,Year<=1979) %>% group_by(country_txt) %>% dplyr::count(country_txt)
+
+par(mfcol=c(1,1))
+hist(gtd.data$Year,breaks=46,main="worldwide attacks by year")
+
+## Subset most relevant data
+
+# INT_IDEO is the closest thing to country data in the GTD.
+gtd.sub <- select(gtd.data,Year,country,country_txt,longitude,latitude,attacktype1_txt,targtype1, +
+                    targtype1_txt,success,nkill,nkillus,nwound,nwoundus,INT_IDEO)
+
+# Attacks that caused at least one death
+gtd.sub.fatal <- filter(gtd.sub,nkill!="NA")
+gtd.sub.fatal <- filter(gtd.sub,nkill>0)
+
+gtd.sub.fatal.US <- filter(gtd.sub,nkill!="NA")
+gtd.sub.fatal.US <- filter(gtd.sub,nkill>0,country_txt=="United States")
+
+# Attacks that killed more than 1000 people
+gtd.data.scary <- filter(gtd.data,nkill>1000)
+
+# Fractional fatalities (more terrorists than victims)
+gtd.data.low <- filter(gtd.data,nkill<1,nkill>0)
+
+# US murder data
+murders.sub <- select(filter(crime.data,Year>1969),Year,Murder) 
+
 ## Filter US data
 attacks.US<-filter(gtd.sub,country_txt=="United States")
 
-# Clean up plotting data
-attacks.US <- filter(attacks.US,provstate!="Puerto Rico",provstate!="Alaska",provstate!="Hawaii")
-attacks.US <- filter(attacks.US,longitude!="NA")
-attacks.US$longitude <- -abs(attacks.US$longitude)
-
-# Add Decade column
-attacks.US <- mutate(attacks.US, Decade=floor(Year/10)*10)
-attacks.US$Decade <- paste(as.character(attacks.US$Decade),"'s")
-
-# Plot all states with ggplot
-all_states <- map_data("state")
-
-p <- ggplot()
-p <- p + geom_polygon( data=all_states, aes(x=long, y=lat, group = group),colour="black", fill="grey50" )
-p <- p + geom_point( data=attacks.US, aes(x=longitude, y=latitude, color = attacktype1_txt)) + 
-  scale_color_discrete(name="Attack Type") +
-  ggtitle('Terror Attacks in the Continental US, 1970-2015')+
-  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
- theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
-#p <- p + geom_text( data=attacks.US, hjust=0.5, vjust=-0.5, aes(x=long, y=lat, label=label), colour="gold2", size=4 )
-p
-
-# US Boxplot
-ggplot(gtd.sub.fatal.US, aes(x = factor(attacktype1_txt), y = nkill)) + geom_boxplot() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('Boxplot of US Terrorism Fatalities by Attack Type') + scale_y_log10(breaks=c(1,10,100,1000)) +
-  xlab('Attack Type') + ylab('Number of Fatalities')
-
-# Top Ten Groups by decade
-gtd.USgroupk.TT <- attacks.US %>% dplyr::count(gname,wt=nkill) %>% arrange(desc(n)) %>% slice(1:10)
-
-
-ggplot(gtd.USgroupk.TT, aes(x=reorder(gname,-n),y=n)) +
-  geom_bar(stat='identity') +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('Top Ten Fatalities by Terrorist Group in the US, 1970-2015') + 
-  xlab('Group') +
-  scale_y_log10(name="Number of Fatalites",breaks=c(1,10,100,1000))
-
-#Compare to ligntning strikes
-gtd.light <- rbind(gtd.USgroupk.TT,sum(weather.data$Lightning_Fatalities))
-
-attacks.US.type <- attacks.US %>% count(INT_IDEO)
-
-
-# Domestic vs International vs unknown
+# Domestic vs International
 attacks.US.dom <- filter(gtd.sub,country_txt=="United States",INT_IDEO==0)
 attacks.US.int <- filter(gtd.sub,country_txt=="United States",INT_IDEO==1)
 attacks.US.unk <- filter(gtd.sub,country_txt=="United States",INT_IDEO==-9)
 
-dom.biz <- filter(attacks.US, targtype1_txt=="Business") %>% dplyr::count(gname) %>% arrange(desc(n))
+# Attack types in the US
+types.US <- attacks.US %>% dplyr::count(targtype1_txt) 
+types.US <- types.US[order(types.US$n),]
 
-ggplot(dom.biz[1:10,], aes(x=reorder(gname,-n),y=n)) +
-  geom_bar(stat='identity') +
+types.ww <- gtd.sub %>% dplyr::count(targtype1_txt) 
+types.ww <- types.ww[order(types.ww$n),]
+
+## Plot treemap of primary targets
+tree.plot(types.US,"targtype1_txt","n","Target Types (US)")
+tree.plot(types.ww,"targtype1_txt","n","Target Types (WW)")
+
+hist(attacks.US.int$Year, breaks=46,main = "Foreign Terrorist attacks in the US")
+hist(attacks.US.dom$Year, breaks=46,main = "Domestic Terrorist attacks in the US")
+
+# Target Types
+
+ggplot(gtd.data, aes(x=reorder(targtype1_txt,targtype1_txt,function(x) -length(x)))) +
+  geom_bar() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle('Top Ten terrorist groups attacking US Businesses, 1970-2015') + 
-  xlab('Group') + ylab('Number of Attacks')
+  ggtitle('Bar chart of Terrorist Target Type: Worldwide')
 
-attacks.US.type$INT_IDEO <- paste("INT_IDEO",as.character(attacks.US.type$n))
-tree.plot(attacks.US.type,"INT_IDEO","n","Source of US Attacks, 1970-2015")
+ggplot(attacks.US, aes(x=reorder(targtype1_txt,targtype1_txt,function(x) -length(x)))) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle('Bar chart of Terrorist Target Type: US')
 
-attacks.US.unk.tm <- attacks.US.unk %>% dplyr::count(gname)
+ggplot(gtd.data, aes(x=reorder(targtype1_txt,targtype1_txt,function(x) -length(x)))) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle('Bar chart of Terrorist Target Type: Worldwide')
 
-tree.plot(attacks.US.unk.tm,"gname","n","US Attacks by Unknown Source, 1970-2015")
+# WW Boxplot
+ggplot(gtd.sub.fatal, aes(x = factor(attacktype1_txt), y = nkill)) + geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle('Boxplot of WW Terrorism Fatalities by Attack Type') + scale_y_log10() +coord_flip()
+
+# US Boxplot
+ggplot(gtd.sub.fatal.US, aes(x = factor(attacktype1_txt), y = nkill)) + geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle('Boxplot of US Terrorism Fatalities by Attack Type') + scale_y_log10()
+
+# Plot treemap of attack methodologies worldwide
+atype.ww <- gtd.sub %>% dplyr::count(attacktype1_txt) 
+atype.ww <- atype.ww[order(atype.ww$n),]
+tree.plot(atype.ww,"attacktype1_txt","n","Attack Types (WW)")
+
+
+
+
+
+
+
+
 ## Bayesian Analysis
 
 # Bayesian #1: Analysis of attacks before and after 1991
 
-# Filter US attacks by international origin (exclude domestic & unknown) and if it caused a US fatality
+# Filter US attacks by international origin (exclude domestic & unknown) and if it caused a fatality
 # Was there a death in the US due to foreign terrorism that year (a=no, b=yes)
 # Define beta prior based on US incidents from 1975 to 1990
-YearStart=1991
-YearEnd=2015
 
 tdeaths.US <- select(attacks.US.int,Year,nkillus)
 tdeaths.US <- filter(tdeaths.US,nkillus>=0)
@@ -465,8 +469,6 @@ pre1990.pred <- distpred(beta.par,100,'Pre-1990')
 priors <- left_join(tdeaths.prior,murders.prior,by = "Year")
 events.prior <-left_join(tevents.US,murders.prior,by = "Year")
 
-###
-
 # of Fatalities and # events by country of origin
 tnat.fat.Country <- tnat.data %>% group_by(Origin) %>% dplyr::summarize(Totalf = sum(Fatalities)) %>% arrange(Origin)
 tnat.evn.Country <- tnat.data %>% group_by(Origin) %>% dplyr::count(Date) %>% dplyr::count(Origin) %>% arrange(Origin)
@@ -482,29 +484,12 @@ colnames(tnat.Country)[6] <- "na"
 
 tnat.Country <- arrange(tnat.Country,desc(nf))
 
-ggplot(tnat.Country,aes(x=reorder(Origin,nn),y=nn,fill=nf))  +
+ggplot(tnat.Country,aes(x=Origin,y=nn,fill=nf))  +
   geom_bar(stat="identity") + ylim(0,13) +
-  coord_flip()+ggtitle("Foreign Terrorist Events in the US by \nCountry of Terrorist Origin, 1975-2015") +
-  ylab("Number of Events") +xlab("Country of Origin") +
+  coord_flip()+ggtitle("Foreign Terrorist Events in the US by Country of Origin, 1975-2015") +
+  ylab("Number of Events") +
   scale_fill_gradient(low="darkblue",high="darkred", name="Number of Fatalites") +
-  geom_text(aes(label=nf), hjust=-1,vjust=.3,  color="black", size=3) +
-  geom_text(aes(label=nn), hjust=2.5,vjust=.3,  color="white", size=3)
-
-
-ggplot(tnat.Country,aes(x=reorder(Origin,nn),y=nn,fill=nf))  +
-  geom_bar(stat="identity") + ylim(0,13) +
-  coord_flip()+
-  ggtitle("Foreign Terrorist Events in the US by Country of Terrorist Origin, 1975-2015") +
-  ylab("Number of Events") +xlab("Country of Origin") +
-  scale_fill_gradient(low="darkblue",high="darkred", name="Number of Fatalites") +
-  geom_text(aes(label=nf), hjust=-1,vjust=.3,  color="black", size=3)+
-
-# Refugee flows based on AN data
-ggplot(ref3.data, aes(x=Year,y=Refugee)) +
-  geom_bar(stat='identity' ) +
-  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ggtitle('Refugee Entry into the US, 1989-2015') + 
-  xlab('Group') + ylab('Number of Refugees')
+  geom_text(aes(label=nf), hjust=1.5,vjust=.3,  color="white", size=3)
 
 ## Bayesian #3: Refugee Correlation Study
 
@@ -518,6 +503,7 @@ country.plot(ref2.Totals,"Origin","totalr",max(ref2.Totals$totalr), "Refugee ent
 ref.us <-filter(ref2.data,Destination=="United States",Population.type!="Returned refugees")
 
 #Only have refugee data
+
 
 
 # Join terrorist nationality and visa data to this
@@ -599,11 +585,12 @@ ref2005.CDF <- data.frame(post2005.pred$CDF,pre2005.pred$CDF)
 dist.plot(post2005.pred$PDF,pre2005.pred$PDF,"PDF of Pre- and Post 2005","Post-2005","Pre-2005")
 dist.plot(post2005.pred$CDF,pre2005.pred$CDF,"CDF of Pre- and Post 2005","Post-2005","Pre-2005")
 
+
 #Do a classic disease analysis based on these numbers
 # Well this conversion only took about 45 minutes to figure out....
 tnat.data$Year <- as.POSIXlt(as.Date(tnat.data$Date, format='%m/%d/%Y'))$year+1900
 
-tnat.ter.Year <- tnat.data %>% group_by(Year)  %>% dplyr::count(Terrorists) %>% count(Year)
+tnat.ter.Year <- tnat.data %>% group_by(Year) %>% dplyr::count(Terrorists) %>% dplyr::count(Origin)
 tnat.ref.Year <- tnat.data %>% group_by(Year) %>% dplyr::count(wt = Visa.Type=="R")
 tnat.asy.Year <- tnat.data %>% group_by(Year) %>% dplyr::count(wt = Visa.Type=="A")
 
@@ -613,7 +600,6 @@ colnames(tnat.Year)[2] <- "nt"
 colnames(tnat.Year)[3] <- "nr"
 colnames(tnat.Year)[4] <- "na"
 
-# Make sure every year is represented
 tnat.Year <- left_join(gtd.year,tnat.Year, by="Year")
 tnat.Year[is.na(tnat.Year)] <-0
 tnat.Bayes <- filter(tnat.Year, Year>1988)
@@ -622,108 +608,17 @@ ref.Bayes <- left_join(ref3.data,tnat.Bayes,by="Year")
 
 ref.Bayes <- mutate(ref.Bayes,Per=Refugee/Total)
 ref.Bayes <- mutate(ref.Bayes,Pet=nt/Total)
-ref.Bayes <- mutate(ref.Bayes,Prt=(nr+na)/nt)
+ref.Bayes <- mutate(ref.Bayes,Prt=nr/nt)
 ref.Bayes <- mutate(ref.Bayes,Ptr=Prt*Pet/Per)
 ref.Bayes$Ptr[is.nan(ref.Bayes$Ptr)] <-0
 
-# Includes refugees and asylum seekers
 ggplot(ref.Bayes,aes(x=Year,y=(Ptr)))  +
   geom_point(stat="identity")  +
-  ggtitle("Bayesian Estimate of Terrorism Risk from Refugees & Asylum Seekers, 1989-2015") +
+  ggtitle("Bayesian Estimate of Terrorism Risk from Refugees, 1989-2015") +
   ylab("Probability that a refugee is a terrorist") 
 
-# How likely is it that a given year will be free of a terrorist successfully 
-# entering the country as a refugee? (a=yes, b= no)
-tot.tref=iterate.Bayes(select(ref.Bayes,Year,nr),1991,2015,5)
-
-beta.par <- tot.tref[[2]]
-
-beta.post.par <- beta.par + c((YearEnd-YearStart)+1,tot.tref[[1]])
-
-post.sim.pre <- post.sim(beta.par,"Pre-1990")
-post.sim.pre
-post.sim.post <- post.sim(beta.post.par, "Post-1990")
-post.sim.post
-
-# All non-citizen entries
-ggplot(data=ref3.trans, aes(x=Year, y=n, fill=Type)) +
-  geom_bar(stat="identity")+
-  scale_fill_brewer(palette="BrBG") +
-  ggtitle('Non-citizen Entry into US, 1989-2015') + ylab('Number of Visitors')
+### Function Test Area
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#### Scraps
-
-par(mfcol=c(1,1))
-hist(gtd.data$Year,breaks=46,main="worldwide attacks by year")
-
-gtd.sub.fatal.US <- filter(gtd.sub,nkill!="NA")
-gtd.sub.fatal.US <- filter(gtd.sub,nkill>0,country_txt=="United States")
-
-# Attacks that killed more than 1000 people
-gtd.data.scary <- filter(gtd.data,nkill>1000)
-
-# Fractional fatalities (more terrorists than victims)
-gtd.data.low <- filter(gtd.data,nkill<1,nkill>0)
-
-# Attack types in the US
-types.US <- attacks.US %>% dplyr::count(targtype1_txt) 
-types.US <- types.US[order(types.US$n),]
-
-types.ww <- gtd.sub %>% dplyr::count(targtype1_txt) 
-types.ww <- types.ww[order(types.ww$n),]
-
-hist(attacks.US.int$Year, breaks=46,main = "Foreign Terrorist attacks in the US")
-hist(attacks.US.dom$Year, breaks=46,main = "Domestic Terrorist attacks in the US")
-
-# Target Types
-
-ggplot(attacks.US, aes(x=reorder(targtype1_txt,targtype1_txt,function(x) -length(x)))) +
-  geom_bar() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle('Bar chart of US Terrorist Targets: 1970-2015') + xlab('Target Type') 
-
-# Plot treemap of attack methodologies worldwide
-atype.ww <- gtd.sub %>% dplyr::count(attacktype1_txt) 
-atype.ww <- atype.ww[order(atype.ww$n),]
-tree.plot(atype.ww,"attacktype1_txt","n","Attack Types (WW)")
-
-attacks.US.sum <- attacks.US %>% group_by(attacktype1_txt) %>% dplyr::count(Decade)
-# US Attack Type dotplot
-ggplot(attacks.US, aes(nkill)) + geom_histogram(binwidth=10) +
-  facet_grid( .~factor(Decade))+
-  # theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle('Bar chart of Terrorist Attack Type: US') + xlab('Attack Type') 
-#scale_y_log10(name="Number of Fatalites",breaks=c(100,1000,10000)) 
-
-
-ggplot(attacks.US, aes(x=attacktype1_txt, y=nkill)) + geom_point(aes(color=factor(attacktype1_txt))) +
-  facet_grid(.~ factor(Decade))+
-  # theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle('Bar chart of Terrorist Attack Type: Worldwide') + xlab('Attack Type') 
-#scale_y_log10(name="Number of Fatalites",breaks=c(100,1000,10000)) 
-
-map.plot(gtd.data,"Worldwide Terrorist Events - 1970-2015")
-
-par(mai=c(0,0,.25,0),oma=c(0.25,0.25,0.25,0.25))
-newmap <- getMap(resolution = "low")
-plot(newmap,main="Terrorist Attacks Europe and the Middle East, 1970-2015",xlim=c(-5,50),ylim=c(10,65))
-points(gtd.data$longitude, gtd.data$latitude,col='red',pch='.')
 
 
